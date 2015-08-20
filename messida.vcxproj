@@ -1,0 +1,178 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{7F769C15-3336-49A9-A5D1-FC6F11AA15C6}</ProjectGuid>
+    <RootNamespace>messida</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <PlatformToolset>v120</PlatformToolset>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Platform)'=='Win32'">
+    <TargetExt>.plw</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
+    <TargetExt>.p64</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros">
+    <IDA_DIR>d:\ida65</IDA_DIR>
+    <IDA_SDK>d:\idasdk66</IDA_SDK>
+  </PropertyGroup>
+  <ItemGroup>
+    <BuildMacro Include="IDA_DIR">
+      <Value>$(IDA_DIR)</Value>
+    </BuildMacro>
+    <BuildMacro Include="IDA_SDK">
+      <Value>$(IDA_SDK)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+  </ItemGroup>
+  <PropertyGroup>
+    <OutDir>$(IDA_DIR)\plugins\</OutDir>
+    <IntDir>obj\$(PlatformTarget)\$(Configuration)\</IntDir>
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/wd4025 /wd4003 /wd4018 /wd4061 /wd4100 /wd4127 /wd4131 /wd4141 /wd4146 /wd4150 /wd4189 /wd4191 /wd4201 /wd4232 /wd4242 /wd4244 /wd4250 /wd4255 /wd4296 /wd4306 /wd4310 /wd4312 /wd4324 /wd4347 /wd4435 /wd4510 /wd4512 /wd4514 /wd4571 /wd4610 /wd4611 /wd4619 /wd4625 /wd4626 /wd4640 /wd4668 /wd4702 /wd4706 /wd4710 /wd4711 /wd4805 /wd4820 /wd4826 /wd4365 /wd4389 /wd4245 /wd4388 /wd4267 /wd4005 /wd4350 /wd4996 /wd4060 /wd4065 /wd4290 /wd4355 /wd4800 /wd4371 /wd4548  %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(IDA_SDK)\include;..\..\src\emu\debug;..\dxsdk\Include;..\..\src\osd;..\..\src\emu;..\..\src\mame;..\..\src\lib;..\..\src\lib\util;..\;..\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>__NT__;__IDP__;USE_STANDARD_FILE_FUNCTIONS;INLINE=static inline;CRLF=3;LSB_FIRST;FLAC__NO_DLL;LUA_COMPAT_APIINTCASTS;XML_STATIC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;WIN32;_WIN32;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">NATIVE_DRC=drcbe_x86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Platform)'=='x64'">NATIVE_DRC=drcbe_x64;X64_WINDOWS_ABI;PTR64=1;_WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">MAME_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild Condition="'$(Configuration)'=='Debug'">true</MinimalRebuild>
+      <MinimalRebuild Condition="'$(Configuration)'=='Release'">false</MinimalRebuild>
+      <StringPooling Condition="'$(Configuration)'=='Release'">true</StringPooling>
+      <BasicRuntimeChecks Condition="'$(Configuration)'=='Debug'">EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreaded</RuntimeLibrary>
+      <Optimization Condition="'$(Configuration)'=='Debug'">Disabled</Optimization>
+      <Optimization Condition="'$(Configuration)'=='Release'">Full</Optimization>
+      <ProgramDataBaseFileName>$(OutDir)messida.pdb</ProgramDataBaseFileName>
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <PrecompiledHeader />
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">..\dxsdk\lib\x86;$(IDA_SDK)\lib\x86_win_vc_32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">..\dxsdk\lib\x64;$(IDA_SDK)\lib\x86_win_vc_64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <LinkTimeCodeGeneration Condition="'$(Configuration)'=='Release'">UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <AdditionalDependencies>ida.lib;user32.lib;winmm.lib;advapi32.lib;shlwapi.lib;wsock32.lib;opengl32.lib;gdi32.lib;dsound.lib;dxguid.lib;dinput8.lib;comctl32.lib;comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OptimizeReferences Condition="'$(Configuration)'=='Release'">true</OptimizeReferences>
+      <EnableCOMDATFolding Condition="'$(Configuration)'=='Release'">true</EnableCOMDATFolding>
+      <TargetMachine Condition="'$(Platform)'=='Win32'">MachineX86</TargetMachine>
+      <TargetMachine Condition="'$(Platform)'=='x64'">MachineX64</TargetMachine>
+      <AdditionalOptions>/ignore:4221 /export:PLUGIN %(AdditionalOptions)</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <ImportLibrary />
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\build\generated\mame\megadrive\drivlist.c" />
+    <ClCompile Include="..\..\src\mame\mame.c" />
+    <ClCompile Include="..\..\src\version.c" />
+    <ClCompile Include="debug.cpp" />
+    <ClCompile Include="nargv.c" />
+    <ClCompile Include="plugin.cpp" />
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\7z.vcxproj">
+      <Project>{ad573d62-e76a-4b11-ae34-5110a6789a42}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\bgfx.vcxproj">
+      <Project>{d3e7e119-35cf-4f4f-aba0-d3bdcd1b879a}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\dasm.vcxproj">
+      <Project>{f2d28b0a-6da5-4f78-b629-d834aa00429d}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\emu.vcxproj">
+      <Project>{e6fa15e4-a354-4526-acef-13c8e80fcacf}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\expat.vcxproj">
+      <Project>{f4cd40b1-c37c-452d-9785-640f26f0bf54}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\flac.vcxproj">
+      <Project>{b6fc19e8-073a-4541-bb7b-d24b548d424a}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\formats.vcxproj">
+      <Project>{f69636b1-fcce-45ce-b09a-113e371a2d7a}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\jpeg.vcxproj">
+      <Project>{447c6800-dcfd-4c48-b72a-a8223bb409ca}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\jsoncpp.vcxproj">
+      <Project>{ae023ff3-d712-4e54-adc5-3b56a148650f}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\lsqlite3.vcxproj">
+      <Project>{1d84edab-94cf-48fb-83ee-b75bc697660e}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\lua.vcxproj">
+      <Project>{d9e2eed1-f1ab-4737-a6ac-863700b1a5a9}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\mame_megadrive.vcxproj">
+      <Project>{1fce0342-0bb2-c497-7412-bfea6015af19}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\mongoose.vcxproj">
+      <Project>{ff05b529-2b6f-4166-9dff-5fe2aef89c40}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\netlist.vcxproj">
+      <Project>{665ef8ac-2a4c-4c3e-a05f-fd1e5db11de9}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\ocore_windows.vcxproj">
+      <Project>{678afacb-d34a-7602-9c85-bf7f0805bbde}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\optional.vcxproj">
+      <Project>{abcc5410-1704-9da7-200e-01cb8cc4c3a0}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\osd_windows.vcxproj">
+      <Project>{d5e1a481-4197-1d77-ca8b-174e3640147b}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\portmidi.vcxproj">
+      <Project>{587f2da6-3274-4a65-86a2-f13ea315bb98}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\softfloat.vcxproj">
+      <Project>{04fbf89e-4761-4cf2-8a12-64500cf0c5c5}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\sqllite3.vcxproj">
+      <Project>{5cb3d495-57ed-461c-81e5-80dc0857517d}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\utils.vcxproj">
+      <Project>{22489ad0-4cb2-4d91-ad81-24b0d80ca30a}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\zlib.vcxproj">
+      <Project>{3d78bd2a-2bd0-4449-8087-42ddfaef7ec9}</Project>
+    </ProjectReference>
+    <ClInclude Include="registers.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

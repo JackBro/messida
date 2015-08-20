@@ -1,0 +1,206 @@
+diff --git a/src/emu/debug/debugcon.c b/src/emu/debug/debugcon.c
+index f52e166..6a06848 100644
+--- a/src/emu/debug/debugcon.c
++++ b/src/emu/debug/debugcon.c
+@@ -17,6 +17,11 @@
+ #include "debugger.h"
+ #include <ctype.h>
+ 
++#if defined (C_IDA_DEBUG)
++#include "mess_debmod.h"
++
++#define strcpy(dst, src) qstrncpy((dst), (src), sizeof(dst))
++#endif
+ 
+ 
+ /***************************************************************************
+@@ -386,7 +391,9 @@ CMDERR debug_console_execute_command(running_machine &machine, const char *comma
+ 	if (echo)
+ 	{
+ 		machine.debug_view().update_all();
++#if !defined (C_IDA_DEBUG)
+ 		debugger_refresh_display(machine);
++#endif
+ 	}
+ 	return result;
+ }
+@@ -481,7 +488,11 @@ void CLIB_DECL debug_console_printf(running_machine &machine, const char *format
+ 	strvprintf(buffer, format, arg);
+ 	va_end(arg);
+ 
++#if !defined (C_IDA_DEBUG)
+ 	text_buffer_print(console_textbuf, buffer.c_str());
++#else
++    printf("%s\n", buffer.c_str());
++#endif
+ 
+ 	/* force an update of any console views */
+ 	machine.debug_view().update_all(DVT_CONSOLE);
+diff --git a/src/emu/debug/debugcpu.c b/src/emu/debug/debugcpu.c
+index 2eeb2e1..2cde8b2 100644
+--- a/src/emu/debug/debugcpu.c
++++ b/src/emu/debug/debugcpu.c
+@@ -22,6 +22,15 @@
+ #include <ctype.h>
+ #include <zlib.h>
+ 
++#if defined (C_IDA_DEBUG)
++#include "mess_debmod.h"
++
++extern running_machine *g_running_machine;
++extern codemap_t g_codemap;
++extern eventlist_t g_events;
++
++#define sprintf(str, format, x) qsnprintf(str, sizeof(str), format, (x))
++#endif
+ 
+ /***************************************************************************
+     CONSTANTS
+@@ -1702,6 +1711,10 @@ device_debug::~device_debug()
+ 
+ void device_debug::start_hook(const attotime &endtime)
+ {
++#if defined (C_IDA_DEBUG)
++	g_running_machine = &m_device.machine();
++#endif
++
+ 	debugcpu_private *global = m_device.machine().debugcpu_data;
+ 
+ 	assert((m_device.machine().debug_flags & DEBUG_FLAG_ENABLED) != 0);
+@@ -1822,6 +1835,11 @@ void device_debug::exception_hook(int exception)
+ 
+ void device_debug::instruction_hook(offs_t curpc)
+ {
++#if defined (C_IDA_DEBUG)
++	offs_t _pc = m_device.machine().firstcpu->pc();
++	if (_pc >= 0 && _pc < MAX_ROM_SIZE)
++		g_codemap[_pc] = std::pair<ea_t, bool>(m_pc_history[(m_pc_history_index-1) % HISTORY_SIZE], true);
++#endif
+ 	running_machine &machine = m_device.machine();
+ 	debugcpu_private *global = machine.debugcpu_data;
+ 
+@@ -1862,7 +1880,19 @@ void device_debug::instruction_hook(offs_t curpc)
+ 
+ 			// if we hit 0, stop
+ 			if (m_stepsleft == 0)
++			{
++#if defined (C_IDA_DEBUG)
++				debug_event_t ev;
++				ev.eid = STEP;
++				ev.pid = 1;
++				ev.tid = 1;
++				ev.ea = _pc;
++				ev.handled = true;
++
++				g_events.enqueue(ev, IN_BACK);
++#endif
+ 				global->execution_state = EXECUTION_STATE_STOPPED;
++			}
+ 
+ 			// update every 100 steps until we are within 200 of the end
+ 			else if ((m_flags & DEBUG_FLAG_STEPPING_OUT) == 0 && (m_stepsleft < 200 || m_stepsleft % 100 == 0))
+@@ -1887,6 +1917,16 @@ void device_debug::instruction_hook(offs_t curpc)
+ 		// check the temp running breakpoint and break if we hit it
+ 		else if ((m_flags & DEBUG_FLAG_STOP_PC) != 0 && m_stopaddr == curpc)
+ 		{
++#if defined (C_IDA_DEBUG)
++			debug_event_t ev;
++			ev.eid = PROCESS_SUSPEND;
++			ev.pid = 1;
++			ev.tid = 1;
++			ev.ea = _pc;
++			ev.handled = true;
++
++			g_events.enqueue(ev, IN_BACK);
++#endif
+ 			debug_console_printf(machine, "Stopped at temporary breakpoint %X on CPU '%s'\n", m_stopaddr, m_device.tag());
+ 			global->execution_state = EXECUTION_STATE_STOPPED;
+ 		}
+@@ -1930,8 +1970,13 @@ void device_debug::instruction_hook(offs_t curpc)
+ 
+ 			// clear the memory modified flag and wait
+ 			global->memory_modified = false;
++#ifndef C_IDA_DEBUG
+ 			if (machine.debug_flags & DEBUG_FLAG_OSD_ENABLED)
+ 				machine.osd().wait_for_debugger(m_device, firststop);
++#else
++            while (global->execution_state != EXECUTION_STATE_RUNNING && !machine.scheduled_event_pending())
++                osd_sleep(1);
++#endif
+ 			firststop = false;
+ 
+ 			// if something modified memory, update the screen
+@@ -2901,6 +2946,19 @@ void device_debug::breakpoint_check(offs_t pc)
+ 		if (bp->hit(pc))
+ 		{
+ 			// halt in the debugger by default
++#if defined (C_IDA_DEBUG)
++			debug_event_t ev;
++			ev.eid = BREAKPOINT;
++			ev.pid = 1;
++			ev.tid = 1;
++			ev.ea = pc;
++			ev.handled = true;
++
++			ev.bpt.hea = BADADDR;
++			ev.bpt.kea = BADADDR;
++
++			g_events.enqueue(ev, IN_BACK);
++#endif
+ 			debugcpu_private *global = m_device.machine().debugcpu_data;
+ 			global->execution_state = EXECUTION_STATE_STOPPED;
+ 
+@@ -2920,6 +2978,19 @@ void device_debug::breakpoint_check(offs_t pc)
+ 		if (rp->hit())
+ 		{
+ 			// halt in the debugger by default
++#if defined (C_IDA_DEBUG)
++			debug_event_t ev;
++			ev.eid = BREAKPOINT;
++			ev.pid = 1;
++			ev.tid = 1;
++			ev.ea = pc;
++			ev.handled = true;
++
++			ev.bpt.hea = BADADDR;
++			ev.bpt.kea = BADADDR;
++
++			g_events.enqueue(ev, IN_BACK);
++#endif
+ 			debugcpu_private *global = m_device.machine().debugcpu_data;
+ 			global->execution_state = EXECUTION_STATE_STOPPED;
+ 
+@@ -3031,6 +3102,19 @@ void device_debug::watchpoint_check(address_space &space, int type, offs_t addre
+ 		if (wp->hit(type, address, size))
+ 		{
+ 			// halt in the debugger by default
++#if defined (C_IDA_DEBUG)
++			debug_event_t ev;
++			ev.eid = BREAKPOINT;
++			ev.pid = 1;
++			ev.tid = 1;
++			ev.ea = pc();
++			ev.handled = true;
++
++			ev.bpt.hea = address;
++			ev.bpt.kea = address;
++
++			g_events.enqueue(ev, IN_BACK);
++#endif
+ 			global->execution_state = EXECUTION_STATE_STOPPED;
+ 
+ 			// if we hit, evaluate the action
+diff --git a/src/osd/windows/winutil.c b/src/osd/windows/winutil.c
+index adc78c3..131a87d 100644
+--- a/src/osd/windows/winutil.c
++++ b/src/osd/windows/winutil.c
+@@ -78,6 +78,9 @@ osd_dir_entry_type win_attributes_to_entry_type(DWORD attributes)
+ 
+ BOOL win_is_gui_application(void)
+ {
++#if defined (C_IDA_DEBUG)
++	return FALSE;
++#endif
+ 	static BOOL is_gui_frontend;
+ 	static BOOL is_first_time = TRUE;
+ 	HMODULE module;
