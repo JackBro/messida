@@ -1,4 +1,7 @@
 #include <Windows.h>
+#include <streambuf>
+#include <fstream>
+#include <iostream>
 #include <ida.hpp>
 #include <idd.hpp>
 #include <dbg.hpp>
@@ -10,6 +13,7 @@
 
 #include "emu.h"
 #include "debugcpu.h"
+#include "debugcon.h"
 
 #include "mess_debmod.h"
 #include "nargv.h"
@@ -57,74 +61,74 @@ static char *register_str_t[] = {
 
 static const char *const SRReg[] =
 {
-    "C",
-    "V",
-    "Z",
-    "N",
-    "X",
-    NULL,
-    NULL,
-    NULL,
-    "I",
-    "I",
-    "I",
-    NULL,
-    NULL,
-    "S",
-    NULL,
-    "T"
+	"C",
+	"V",
+	"Z",
+	"N",
+	"X",
+	NULL,
+	NULL,
+	NULL,
+	"I",
+	"I",
+	"I",
+	NULL,
+	NULL,
+	"S",
+	NULL,
+	"T"
 };
 
 register_info_t registers[] =
 {
-    { "D0", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "D1", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "D2", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "D3", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "D4", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "D5", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "D6", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "D7", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D0", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D1", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D2", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D3", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D4", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D5", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D6", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "D7", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
 
-    { "A0", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "A1", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "A2", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "A3", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "A4", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "A5", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "A6", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "A7", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A0", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A1", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A2", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A3", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A4", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A5", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A6", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "A7", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
 
-    { "PC", REGISTER_ADDRESS | REGISTER_IP, RC_GENERAL, dt_dword, NULL, 0 },
-    { "SP", REGISTER_ADDRESS | REGISTER_SP, RC_GENERAL, dt_dword, NULL, 0 },
-    { "ISP", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
-    { "USP", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "PC", REGISTER_ADDRESS | REGISTER_IP, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "SP", REGISTER_ADDRESS | REGISTER_SP, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "ISP", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
+	{ "USP", REGISTER_ADDRESS, RC_GENERAL, dt_dword, NULL, 0 },
 
-    { "SR", NULL, RC_GENERAL, dt_word, SRReg, 0xFFFF },
+	{ "SR", NULL, RC_GENERAL, dt_word, SRReg, 0xFFFF },
 };
 
 static const char *register_classes[] =
 {
-    "General registers",
-    NULL
+	"General registers",
+	NULL
 };
 
 static void wait_for_machine()
 {
 	while (!g_running_machine)
-        qsleep(1);
+		qsleep(1);
 }
 
 static running_machine *get_running_machine()
 {
 	wait_for_machine();
-    return g_running_machine;
+	return g_running_machine;
 }
 
 static address_space *get_addr_space()
 {
 	wait_for_machine();
-    return &get_running_machine()->firstcpu->space();
+	return &get_running_machine()->firstcpu->space();
 }
 
 static device_debug *get_debugger()
@@ -152,34 +156,40 @@ static ea_t get_current_pc()
 	return get_reg_value(R_PC);
 }
 
-static void create_console(void)
+std::streambuf *CinBuffer, *CoutBuffer, *CerrBuffer;
+std::fstream ConsoleInput, ConsoleOutput, ConsoleError;
+
+static void create_console()
 {
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-
 	// Create a new console window.
-    if (!AllocConsole()) return;
+	if (!AllocConsole()) return;
 
-    SetConsoleTitle("MESS Console");
+	SetConsoleTitle("MESS Console");
 
-    // Set the screen buffer to be larger than normal (this is optional).
-    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
-    {
-        csbi.dwSize.Y = 1; // any useful number of lines...
-        SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), csbi.dwSize);
-    }
+	CinBuffer = std::cin.rdbuf();
+	CoutBuffer = std::cout.rdbuf();
+	CerrBuffer = std::cerr.rdbuf();
+	ConsoleInput.open("CONIN$", std::ios::in);
+	ConsoleOutput.open("CONOUT$", std::ios::out);
+	ConsoleError.open("CONOUT$", std::ios::out);
+	std::cin.rdbuf(ConsoleInput.rdbuf());
+	std::cout.rdbuf(ConsoleOutput.rdbuf());
+	std::cerr.rdbuf(ConsoleError.rdbuf());
+}
 
-    // Redirect "stdin" to the console window.
-    if (!freopen("conin$", "r+t", stdin)) return;
+static void close_console()
+{
+	ConsoleInput.close();
+	ConsoleOutput.close();
+	ConsoleError.close();
+	std::cin.rdbuf(CinBuffer);
+	std::cout.rdbuf(CoutBuffer);
+	std::cerr.rdbuf(CerrBuffer);
+	CinBuffer = NULL;
+	CoutBuffer = NULL;
+	CerrBuffer = NULL;
 
-    // Redirect "stderr" to the console window.
-    if (!freopen("conout$", "w+t", stderr)) return;
-
-    // Redirect "stdout" to the console window.
-    if (!freopen("conout$", "w+t", stdout)) return;
-
-    // Turn off buffering for "stdout" ("stderr" is unbuffered by default).
-
-    setbuf(stdout, NULL);
+	FreeConsole();
 }
 
 static void prepare_codemap()
@@ -221,6 +231,57 @@ static void apply_codemap()
 	msg("Codemap applied.\n");
 }
 
+static bool idaapi execute_mess_cmd(void *ud)
+{
+	const char *exec = askstr(HIST_CMD, "", "Enter debugger command here:\n");
+
+	if (!exec) return false;
+
+	CMDERR _error = debug_console_execute_command(*g_running_machine, exec, TRUE);
+
+	return (_error == CMDERR_NONE);
+}
+
+static int req_id = 0;
+bool mess_menu_added = false;
+#define MESS_MENU_RUN_CMD "Execute MESS command..."
+
+//---------------------------------------------------------------------------
+void remove_mess_menu()
+{
+	if (mess_menu_added)
+		del_menu_item("Debugger/" MESS_MENU_RUN_CMD);
+	else
+		cancel_exec_request(req_id);
+	mess_menu_added = false;
+	req_id = 0;
+}
+
+//---------------------------------------------------------------------------
+void install_mess_menu()
+{
+	// HACK: We queue this request because commdbg apparently enables the debug menus
+	//       just after calling init_debugger().
+	struct uireq_install_menu_t : public ui_request_t
+	{
+		virtual bool idaapi run()
+		{
+			if (!mess_menu_added)
+			{
+				mess_menu_added = add_menu_item("Debugger/StepInto",
+					MESS_MENU_RUN_CMD,
+					NULL,
+					SETMENU_INS | SETMENU_CTXAPP,
+					execute_mess_cmd,
+					NULL);
+				enable_menu_item("Debugger/" MESS_MENU_RUN_CMD, false);
+			}
+			return false;
+		}
+	};
+	req_id = execute_ui_requests(new uireq_install_menu_t, NULL);
+}
+
 static void pause_execution()
 {
 	get_debugger()->halt_on_next_instruction("");
@@ -245,13 +306,14 @@ static void finish_execution()
 // Returns true-success
 // This function is called from the main thread
 static bool idaapi init_debugger(const char *hostname,
-    int port_num,
-    const char *password)
+	int port_num,
+	const char *password)
 {
+	install_mess_menu();
 	create_console();
-    set_process_options(NULL, "genesis", NULL, NULL, NULL, 0);
+	set_process_options(NULL, "genesis", NULL, NULL, NULL, 0);
 	SetCurrentDirectoryA(idadir("plugins"));
-    return true;
+	return true;
 }
 
 // Terminate debugger
@@ -259,7 +321,8 @@ static bool idaapi init_debugger(const char *hostname,
 // This function is called from the main thread
 static bool idaapi term_debugger(void)
 {
-    FreeConsole();
+	enable_menu_item("Debugger/" MESS_MENU_RUN_CMD, false);
+	close_console();
 	return true;
 }
 
@@ -269,40 +332,35 @@ static bool idaapi term_debugger(void)
 // This function is called from the main thread
 static int idaapi process_get_info(int n, process_info_t *info)
 {
-    return 0;
+	return 0;
 }
 
 static void GetPluginName(char *szModule)
 {
-    MEMORY_BASIC_INFORMATION mbi;
-    SetLastError(ERROR_SUCCESS);
-    VirtualQuery(GetPluginName, &mbi, sizeof(mbi));
+	MEMORY_BASIC_INFORMATION mbi;
+	SetLastError(ERROR_SUCCESS);
+	VirtualQuery(GetPluginName, &mbi, sizeof(mbi));
 
-    GetModuleFileNameA((HINSTANCE)mbi.AllocationBase, (LPSTR)szModule, 2048);
+	GetModuleFileNameA((HINSTANCE)mbi.AllocationBase, (LPSTR)szModule, 2048);
 }
 
 static int idaapi mess_process(void *ud)
 {
-    int rc;
+	int rc;
 
-    NARGV *params = (NARGV *)ud;
-    rc = utf8_main(params->argc, params->argv);
-    nargv_free(params);
+	NARGV *params = (NARGV *)ud;
+	rc = utf8_main(params->argc, params->argv);
+	nargv_free(params);
 
-    debug_event_t ev;
-    ev.eid = PROCESS_EXIT;
-    ev.pid = 1;
-    ev.handled = true;
-    ev.exit_code = rc;
+	debug_event_t ev;
+	ev.eid = PROCESS_EXIT;
+	ev.pid = 1;
+	ev.handled = true;
+	ev.exit_code = rc;
 
-    g_events.enqueue(ev, IN_BACK);
+	g_events.enqueue(ev, IN_BACK);
 
-    return rc;
-}
-
-static void prepare_forms()
-{
-	
+	return rc;
 }
 
 // Start an executable to debug
@@ -311,48 +369,48 @@ static void prepare_forms()
 // -1 - network error
 // This function is called from debthread
 static int idaapi start_process(const char *path,
-    const char *args,
-    const char *startdir,
-    int dbg_proc_flags,
-    const char *input_path,
-    uint32 input_file_crc32)
+	const char *args,
+	const char *startdir,
+	int dbg_proc_flags,
+	const char *input_path,
+	uint32 input_file_crc32)
 {
-    prepare_forms();
-    
-    char szModule[MAX_PATH];
-    GetPluginName(szModule);
+	enable_menu_item("Debugger/" MESS_MENU_RUN_CMD, true);
 
-    char cmdline[2048];
-    qsnprintf(cmdline, sizeof(cmdline), "\"%s\" %s -debug -cart \'\"%s\"\'", szModule, args, path);
+	char szModule[MAX_PATH];
+	GetPluginName(szModule);
+
+	char cmdline[2048];
+	qsnprintf(cmdline, sizeof(cmdline), "\"%s\" %s -debug -cart \'\"%s\"\'", szModule, args, path);
 
 	stopped = false;
 	prepare_codemap();
-    NARGV *params = nargv_parse(cmdline);
-    mess_thread = qthread_create(mess_process, params);
+	NARGV *params = nargv_parse(cmdline);
+	mess_thread = qthread_create(mess_process, params);
 
-    debug_event_t ev;
-    ev.eid = PROCESS_START;
-    ev.pid = 1;
-    ev.tid = 1;
-    ev.ea = BADADDR;
-    ev.handled = true;
+	debug_event_t ev;
+	ev.eid = PROCESS_START;
+	ev.pid = 1;
+	ev.tid = 1;
+	ev.ea = BADADDR;
+	ev.handled = true;
 
-    qstrncpy(ev.modinfo.name, path, sizeof(ev.modinfo.name));
-    ev.modinfo.base = 0;
-    ev.modinfo.size = 0;
-    ev.modinfo.rebase_to = BADADDR;
+	qstrncpy(ev.modinfo.name, path, sizeof(ev.modinfo.name));
+	ev.modinfo.base = 0;
+	ev.modinfo.size = 0;
+	ev.modinfo.rebase_to = BADADDR;
 
-    g_events.enqueue(ev, IN_BACK);
+	g_events.enqueue(ev, IN_BACK);
 
-    ev.eid = PROCESS_SUSPEND;
-    ev.pid = 1;
-    ev.tid = 1;
-    ev.ea = BADADDR;
-    ev.handled = true;
+	ev.eid = PROCESS_SUSPEND;
+	ev.pid = 1;
+	ev.tid = 1;
+	ev.ea = BADADDR;
+	ev.handled = true;
 
-    g_events.enqueue(ev, IN_BACK);
+	g_events.enqueue(ev, IN_BACK);
 
-    return 1;
+	return 1;
 }
 
 // rebase database if the debugged program has been rebased by the system
@@ -372,16 +430,16 @@ static void idaapi rebase_if_required_to(ea_t new_base)
 // This function is called from debthread
 static int idaapi prepare_to_pause_process(void)
 {
-    debug_event_t ev;
-    ev.eid = PROCESS_SUSPEND;
-    ev.pid = 1;
-    ev.tid = 1;
-    ev.ea = get_current_pc();
-    ev.handled = true;
+	debug_event_t ev;
+	ev.eid = PROCESS_SUSPEND;
+	ev.pid = 1;
+	ev.tid = 1;
+	ev.ea = get_current_pc();
+	ev.handled = true;
 
-    g_events.enqueue(ev, IN_BACK);
+	g_events.enqueue(ev, IN_BACK);
 
-    return 1;
+	return 1;
 }
 
 // Stop the process.
@@ -394,10 +452,10 @@ static int idaapi prepare_to_pause_process(void)
 static int idaapi mess_exit_process(void)
 {
 	CHECK_FOR_START(1);
-    continue_execution();
-    get_running_machine()->schedule_exit();
+	continue_execution();
+	get_running_machine()->schedule_exit();
 
-    return 1;
+	return 1;
 }
 
 // Get a pending debug event and suspend the process
@@ -405,19 +463,19 @@ static int idaapi mess_exit_process(void)
 // This function is called from debthread
 static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 {
-    while (true)
-    {
-        // are there any pending events?
-        if (g_events.retrieve(event))
-        {
-            if (event->eid != PROCESS_EXIT)
-                pause_execution();
-            return g_events.empty() ? GDE_ONE_EVENT : GDE_MANY_EVENTS;
-        }
-        if (g_events.empty())
-            break;
-    }
-    return GDE_NO_EVENT;
+	while (true)
+	{
+		// are there any pending events?
+		if (g_events.retrieve(event))
+		{
+			if (event->eid != PROCESS_EXIT)
+				pause_execution();
+			return g_events.empty() ? GDE_ONE_EVENT : GDE_MANY_EVENTS;
+		}
+		if (g_events.empty())
+			break;
+	}
+	return GDE_NO_EVENT;
 }
 
 // Continue after handling the event
@@ -425,31 +483,31 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 // This function is called from debthread
 static int idaapi continue_after_event(const debug_event_t *event)
 {
-    switch (event->eid)
-    {
-    case BREAKPOINT:
-    case STEP:
-    case PROCESS_SUSPEND:
-    {
-        switch (get_running_notification())
-        {
-        case dbg_null:
-            continue_execution();
-            break;
+	switch (event->eid)
+	{
+	case BREAKPOINT:
+	case STEP:
+	case PROCESS_SUSPEND:
+	{
+		switch (get_running_notification())
+		{
+		case dbg_null:
+			continue_execution();
+			break;
 
-        case dbg_run_to:
-        {
-            ea_t addr = get_screen_ea();
-            get_debugger()->go(addr);
-        } break;
-        }
-    } break;
-    case PROCESS_EXIT:
+		case dbg_run_to:
+		{
+			ea_t addr = get_screen_ea();
+			get_debugger()->go(addr);
+		} break;
+		}
+	} break;
+	case PROCESS_EXIT:
 		finish_execution();
-        break;
-    }
-        
-    return 1;
+		break;
+	}
+
+	return 1;
 }
 
 // The following function will be called by the kernel each time
@@ -474,40 +532,40 @@ static void idaapi stopped_at_debug_event(bool dlls_added)
 // These functions are called from debthread
 static int idaapi thread_suspend(thid_t tid) // Suspend a running thread
 {
-    return 0;
+	return 0;
 }
 
 static int idaapi thread_continue(thid_t tid) // Resume a suspended thread
 {
-    return 0;
+	return 0;
 }
 
 static int do_step(dbg_notification_t idx)
 {
-    switch (idx)
-    {
-    case dbg_step_into:
-        get_debugger()->single_step();
-        break;
+	switch (idx)
+	{
+	case dbg_step_into:
+		get_debugger()->single_step();
+		break;
 
-    case dbg_step_over:
+	case dbg_step_over:
 		get_debugger()->single_step_over();
-        break;
+		break;
 
-    case dbg_step_until_ret:
-        get_debugger()->single_step_out();
-        break;
+	case dbg_step_until_ret:
+		get_debugger()->single_step_out();
+		break;
 
-    default:
-        return 0;
-    }
+	default:
+		return 0;
+	}
 
-    return 1;
+	return 1;
 }
 
 static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thread
 {
-    return do_step(get_running_notification());
+	return do_step(get_running_notification());
 }
 
 // Read thread registers
@@ -519,34 +577,34 @@ static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thre
 // This function is called from debthread
 static int idaapi read_registers(thid_t tid, int clsmask, regval_t *values)
 {
-    if (clsmask & RC_GENERAL)
-    {
+	if (clsmask & RC_GENERAL)
+	{
 		values[R_D0].ival = get_reg_value(R_D0);
 		values[R_D1].ival = get_reg_value(R_D1);
-        values[R_D2].ival = get_reg_value(R_D2);
-        values[R_D3].ival = get_reg_value(R_D3);
-        values[R_D4].ival = get_reg_value(R_D4);
-        values[R_D5].ival = get_reg_value(R_D5);
-        values[R_D6].ival = get_reg_value(R_D6);
-        values[R_D7].ival = get_reg_value(R_D7);
+		values[R_D2].ival = get_reg_value(R_D2);
+		values[R_D3].ival = get_reg_value(R_D3);
+		values[R_D4].ival = get_reg_value(R_D4);
+		values[R_D5].ival = get_reg_value(R_D5);
+		values[R_D6].ival = get_reg_value(R_D6);
+		values[R_D7].ival = get_reg_value(R_D7);
 
-        values[R_A0].ival = get_reg_value(R_A0);
-        values[R_A1].ival = get_reg_value(R_A1);
-        values[R_A2].ival = get_reg_value(R_A2);
-        values[R_A3].ival = get_reg_value(R_A3);
-        values[R_A4].ival = get_reg_value(R_A4);
-        values[R_A5].ival = get_reg_value(R_A5);
-        values[R_A6].ival = get_reg_value(R_A6);
-        values[R_A7].ival = get_reg_value(R_A7);
+		values[R_A0].ival = get_reg_value(R_A0);
+		values[R_A1].ival = get_reg_value(R_A1);
+		values[R_A2].ival = get_reg_value(R_A2);
+		values[R_A3].ival = get_reg_value(R_A3);
+		values[R_A4].ival = get_reg_value(R_A4);
+		values[R_A5].ival = get_reg_value(R_A5);
+		values[R_A6].ival = get_reg_value(R_A6);
+		values[R_A7].ival = get_reg_value(R_A7);
 
-        values[R_PC].ival = get_reg_value(R_PC);
-        values[R_SP].ival = get_reg_value(R_SP);
-        values[R_ISP].ival = get_reg_value(R_ISP);
-        values[R_USP].ival = get_reg_value(R_USP);
-        values[R_SR].ival = get_reg_value(R_SR);
-    }
+		values[R_PC].ival = get_reg_value(R_PC);
+		values[R_SP].ival = get_reg_value(R_SP);
+		values[R_ISP].ival = get_reg_value(R_ISP);
+		values[R_USP].ival = get_reg_value(R_USP);
+		values[R_SR].ival = get_reg_value(R_SR);
+	}
 
-    return 1;
+	return 1;
 }
 
 // Write one thread register
@@ -558,7 +616,7 @@ static int idaapi read_registers(thid_t tid, int clsmask, regval_t *values)
 static int idaapi write_register(thid_t tid, int regidx, const regval_t *value)
 {
 	set_reg_value((register_t)regidx, value);
-    return 1;
+	return 1;
 }
 
 //
@@ -575,16 +633,16 @@ static int idaapi write_register(thid_t tid, int regidx, const regval_t *value)
 // This function is called from debthread
 static int idaapi get_memory_info(meminfo_vec_t &areas)
 {
-    return -3;
+	return -3;
 }
 
 static size_t mess_memory_read(ea_t ea, void *buffer, size_t size)
 {
-    for (size_t i = 0; i < size; ++i)
-    {
-        ((UINT8*)buffer)[i] = get_addr_space()->read_byte(ea + i);
-    }
-    return size;
+	for (size_t i = 0; i < size; ++i)
+	{
+		((UINT8*)buffer)[i] = get_addr_space()->read_byte(ea + i);
+	}
+	return size;
 }
 
 // Read process memory
@@ -595,16 +653,16 @@ static size_t mess_memory_read(ea_t ea, void *buffer, size_t size)
 static ssize_t idaapi read_memory(ea_t ea, void *buffer, size_t size)
 {
 	CHECK_FOR_START(0);
-    return mess_memory_read(ea, buffer, size);
+	return mess_memory_read(ea, buffer, size);
 }
 
 static size_t mess_memory_write(ea_t ea, const void *buffer, size_t size)
 {
-    for (size_t i = 0; i < size; ++i)
-    {
-        get_addr_space()->write_byte(ea + i, ((UINT8*)buffer)[i]);
-    }
-    return size;
+	for (size_t i = 0; i < size; ++i)
+	{
+		get_addr_space()->write_byte(ea + i, ((UINT8*)buffer)[i]);
+	}
+	return size;
 }
 
 // Write process memory
@@ -612,7 +670,7 @@ static size_t mess_memory_write(ea_t ea, const void *buffer, size_t size)
 // This function is called from debthread
 static ssize_t idaapi write_memory(ea_t ea, const void *buffer, size_t size)
 {
-    return mess_memory_write(ea, buffer, size);
+	return mess_memory_write(ea, buffer, size);
 }
 
 // Is it possible to set breakpoint?
@@ -622,36 +680,36 @@ static ssize_t idaapi write_memory(ea_t ea, const void *buffer, size_t size)
 // It is called to verify hardware breakpoints.
 static int idaapi is_ok_bpt(bpttype_t type, ea_t ea, int len)
 {
-    if (ea % 2 != 0)
-        return BPT_BAD_ALIGN;
+	if (ea % 2 != 0)
+		return BPT_BAD_ALIGN;
 
-    switch (type)
-    {
-        //case BPT_SOFT:
-    case BPT_EXEC:
-    case BPT_READ: // there is no such constant in sdk61
-    case BPT_WRITE:
-    case BPT_RDWR:
-        return BPT_OK;
-    default:
-        return BPT_BAD_TYPE;
-    }
+	switch (type)
+	{
+		//case BPT_SOFT:
+	case BPT_EXEC:
+	case BPT_READ: // there is no such constant in sdk61
+	case BPT_WRITE:
+	case BPT_RDWR:
+		return BPT_OK;
+	default:
+		return BPT_BAD_TYPE;
+	}
 }
 
 static int get_bpt_index(ea_t ea)
 {
-    for (device_debug::breakpoint *bp = get_debugger()->breakpoint_first(); bp != NULL; bp = bp->next())
-        if (bp->address() == ea)
-            return bp->index();
-    return -1;
+	for (device_debug::breakpoint *bp = get_debugger()->breakpoint_first(); bp != NULL; bp = bp->next())
+		if (bp->address() == ea)
+			return bp->index();
+	return -1;
 }
 
 static int get_wpt_index(ea_t ea)
 {
-    for (device_debug::watchpoint *wp = get_debugger()->watchpoint_first(AS_PROGRAM); wp != NULL; wp = wp->next())
-        if (wp->address() == ea)
-            return wp->index();
-    return -1;
+	for (device_debug::watchpoint *wp = get_debugger()->watchpoint_first(AS_PROGRAM); wp != NULL; wp = wp->next())
+		if (wp->address() == ea)
+			return wp->index();
+	return -1;
 }
 
 // Add/del breakpoints.
@@ -661,63 +719,63 @@ static int get_wpt_index(ea_t ea)
 static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 {
 	CHECK_FOR_START(0);
-	
+
 	int i;
-    int cnt = 0;
+	int cnt = 0;
 
-    for (i = 0; i < nadd; ++i)
-    {
-        switch (bpts[i].type)
-        {
-        case BPT_EXEC:
-            get_debugger()->breakpoint_set(bpts[i].ea);
-            bpts[i].code = BPT_OK;
-            cnt++;
-            break;
+	for (i = 0; i < nadd; ++i)
+	{
+		switch (bpts[i].type)
+		{
+		case BPT_EXEC:
+			get_debugger()->breakpoint_set(bpts[i].ea);
+			bpts[i].code = BPT_OK;
+			cnt++;
+			break;
 
-        case BPT_READ:
-            get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, 1, NULL, NULL);
-            bpts[i].code = BPT_OK;
-            cnt++;
-            break;
+		case BPT_READ:
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, 1, NULL, NULL);
+			bpts[i].code = BPT_OK;
+			cnt++;
+			break;
 
-        case BPT_WRITE:
-            get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, bpts[i].ea, 1, NULL, NULL);
-            bpts[i].code = BPT_OK;
-            cnt++;
-            break;
+		case BPT_WRITE:
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, bpts[i].ea, 1, NULL, NULL);
+			bpts[i].code = BPT_OK;
+			cnt++;
+			break;
 
-        case BPT_RDWR:
-            get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, bpts[i].ea, 1, NULL, NULL);
-            bpts[i].code = BPT_OK;
-            cnt++;
-            break;
-        }
-    }
+		case BPT_RDWR:
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, bpts[i].ea, 1, NULL, NULL);
+			bpts[i].code = BPT_OK;
+			cnt++;
+			break;
+		}
+	}
 
-    for (i = 0; i < ndel; i++)
-    {
-        bpts[nadd + i].code = BPT_OK;
-        cnt++;
+	for (i = 0; i < ndel; i++)
+	{
+		bpts[nadd + i].code = BPT_OK;
+		cnt++;
 
-        int idx;
-        switch (bpts[i].type)
-        {
-        case BPT_EXEC:
-            if ((idx = get_bpt_index(bpts[i].ea)) >= 0)
-                get_debugger()->breakpoint_clear(idx);
-            break;
+		int idx;
+		switch (bpts[i].type)
+		{
+		case BPT_EXEC:
+			if ((idx = get_bpt_index(bpts[i].ea)) >= 0)
+				get_debugger()->breakpoint_clear(idx);
+			break;
 
-        case BPT_READ:
-        case BPT_WRITE:
-        case BPT_RDWR:
-            if ((idx = get_wpt_index(bpts[i].ea)) >= 0)
-                get_debugger()->watchpoint_clear(idx);
-            break;
-        }
-    }
+		case BPT_READ:
+		case BPT_WRITE:
+		case BPT_RDWR:
+			if ((idx = get_wpt_index(bpts[i].ea)) >= 0)
+				get_debugger()->watchpoint_clear(idx);
+			break;
+		}
+	}
 
-    return cnt;
+	return cnt;
 }
 
 // Update low-level (server side) breakpoint conditions
@@ -725,16 +783,16 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 // This function is called from debthread
 static int idaapi update_lowcnds(const lowcnd_t *lowcnds, int nlowcnds)
 {
-    for (int i = 0; i < nlowcnds; ++i)
-    {
-    }
+	for (int i = 0; i < nlowcnds; ++i)
+	{
+	}
 
-    return nlowcnds;
+	return nlowcnds;
 }
 
 int main()
 {
-    return 0;
+	return 0;
 }
 
 //--------------------------------------------------------------------------
@@ -745,75 +803,75 @@ int main()
 
 debugger_t debugger =
 {
-    IDD_INTERFACE_VERSION,
-    "MESSIDA", // Short debugger name
-    123, // Debugger API module id
-    "m68k", // Required processor name
-    DBG_FLAG_NOHOST | DBG_FLAG_FAKE_ATTACH | DBG_FLAG_SAFE | DBG_FLAG_NOPASSWORD | DBG_FLAG_NOSTARTDIR | DBG_FLAG_LOWCNDS | DBG_FLAG_CONNSTRING,
+	IDD_INTERFACE_VERSION,
+	"MESSIDA", // Short debugger name
+	123, // Debugger API module id
+	"m68k", // Required processor name
+	DBG_FLAG_NOHOST | DBG_FLAG_FAKE_ATTACH | DBG_FLAG_SAFE | DBG_FLAG_NOPASSWORD | DBG_FLAG_NOSTARTDIR | DBG_FLAG_LOWCNDS | DBG_FLAG_CONNSTRING,
 
-    register_classes, // Array of register class names
-    RC_GENERAL, // Mask of default printed register classes
-    registers, // Array of registers
-    qnumber(registers), // Number of registers
+	register_classes, // Array of register class names
+	RC_GENERAL, // Mask of default printed register classes
+	registers, // Array of registers
+	qnumber(registers), // Number of registers
 
-    0x1000, // Size of a memory page
+	0x1000, // Size of a memory page
 
-    NULL, // bpt_bytes, // Array of bytes for a breakpoint instruction
-    NULL, // bpt_size, // Size of this array
-    0, // for miniidbs: use this value for the file type after attaching
-    0, // reserved
+	NULL, // bpt_bytes, // Array of bytes for a breakpoint instruction
+	NULL, // bpt_size, // Size of this array
+	0, // for miniidbs: use this value for the file type after attaching
+	0, // reserved
 
-    init_debugger,
-    term_debugger,
+	init_debugger,
+	term_debugger,
 
-    process_get_info,
+	process_get_info,
 
-    start_process,
-    NULL, // vamos_attach_process,
-    NULL, // vamos_detach_process,
-    rebase_if_required_to,
-    prepare_to_pause_process,
-    mess_exit_process,
+	start_process,
+	NULL, // vamos_attach_process,
+	NULL, // vamos_detach_process,
+	rebase_if_required_to,
+	prepare_to_pause_process,
+	mess_exit_process,
 
-    get_debug_event,
-    continue_after_event,
+	get_debug_event,
+	continue_after_event,
 
-    NULL, // set_exception_info
-    stopped_at_debug_event,
+	NULL, // set_exception_info
+	stopped_at_debug_event,
 
-    thread_suspend,
-    thread_continue,
-    thread_set_step,
+	thread_suspend,
+	thread_continue,
+	thread_set_step,
 
-    read_registers,
-    write_register,
+	read_registers,
+	write_register,
 
-    NULL, // thread_get_sreg_base
+	NULL, // thread_get_sreg_base
 
-    get_memory_info,
-    read_memory,
-    write_memory,
+	get_memory_info,
+	read_memory,
+	write_memory,
 
-    is_ok_bpt,
-    update_bpts,
-    update_lowcnds,
+	is_ok_bpt,
+	update_bpts,
+	update_lowcnds,
 
-    NULL, // open_file
-    NULL, // close_file
-    NULL, // read_file
+	NULL, // open_file
+	NULL, // close_file
+	NULL, // read_file
 
-    NULL, // map_address,
+	NULL, // map_address,
 
-    NULL, // set_dbg_options
-    NULL, // get_debmod_extensions
-    NULL, // update_call_stack
+	NULL, // set_dbg_options
+	NULL, // get_debmod_extensions
+	NULL, // update_call_stack
 
-    NULL, // appcall
-    NULL, // cleanup_appcall
+	NULL, // appcall
+	NULL, // cleanup_appcall
 
-    NULL, // eval_lowcnd
+	NULL, // eval_lowcnd
 
-    NULL, // write_file
+	NULL, // write_file
 
-    NULL, // send_ioctl
+	NULL, // send_ioctl
 };
