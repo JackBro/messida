@@ -5,17 +5,9 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|x64">
-      <Configuration>Debug</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|x64">
-      <Configuration>Release</Configuration>
-      <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -36,9 +28,6 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <PropertyGroup Condition="'$(Platform)'=='Win32'">
     <TargetExt>.plw</TargetExt>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Platform)'=='x64'">
-    <TargetExt>.p64</TargetExt>
   </PropertyGroup>
   <PropertyGroup Label="UserMacros">
     <IDA_DIR>d:\ida65</IDA_DIR>
@@ -64,7 +53,6 @@
       <AdditionalIncludeDirectories>$(IDA_SDK)\include;..\..\src\emu\debug;..\dxsdk\Include;..\..\src\osd;..\..\src\emu;..\..\src\mame;..\..\src\lib;..\..\src\lib\util;..\;..\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__NT__;__IDP__;USE_STANDARD_FILE_FUNCTIONS;INLINE=static inline;CRLF=3;LSB_FIRST;FLAC__NO_DLL;LUA_COMPAT_APIINTCASTS;XML_STATIC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;WIN32;_WIN32;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">NATIVE_DRC=drcbe_x86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Platform)'=='x64'">NATIVE_DRC=drcbe_x64;X64_WINDOWS_ABI;PTR64=1;_WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">MAME_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild Condition="'$(Configuration)'=='Debug'">true</MinimalRebuild>
@@ -86,14 +74,12 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">..\dxsdk\lib\x86;$(IDA_SDK)\lib\x86_win_vc_32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">..\dxsdk\lib\x64;$(IDA_SDK)\lib\x86_win_vc_64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration Condition="'$(Configuration)'=='Release'">UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <AdditionalDependencies>ida.lib;user32.lib;winmm.lib;advapi32.lib;shlwapi.lib;wsock32.lib;opengl32.lib;gdi32.lib;dsound.lib;dxguid.lib;dinput8.lib;comctl32.lib;comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OptimizeReferences Condition="'$(Configuration)'=='Release'">true</OptimizeReferences>
       <EnableCOMDATFolding Condition="'$(Configuration)'=='Release'">true</EnableCOMDATFolding>
       <TargetMachine Condition="'$(Platform)'=='Win32'">MachineX86</TargetMachine>
-      <TargetMachine Condition="'$(Platform)'=='x64'">MachineX64</TargetMachine>
-      <AdditionalOptions>/ignore:4221 /export:PLUGIN %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <ImportLibrary />
