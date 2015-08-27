@@ -11,5 +11,5 @@ IDA debugger plugin based on MESS emulator
 7. Open generated solution and compile it;
 8. Add **messida.vcxproj** to solution;
 9. Open **View->Other Windows->Property Manager**;
-10. Select both **emu**, **osd_windows**, then right click, select **Add Existing Property Sheet...** and open **messida_emu.props** file;
+10. Select both **emu**, **osd_windows**, **ocore_windows**, then right click, select **Add Existing Property Sheet...** and open **messida_emu.props** file;
 11. Now, press **Build** or **Rebuild** to generate **messida.plw** to your **IDA\plugins** dir.
