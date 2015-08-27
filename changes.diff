@@ -190,8 +190,257 @@ index 2eeb2e1..2cde8b2 100644
  			global->execution_state = EXECUTION_STATE_STOPPED;
  
  			// if we hit, evaluate the action
+diff --git a/src/osd/modules/debugger/win/debugviewinfo.c b/src/osd/modules/debugger/win/debugviewinfo.c
+index b486880..7f971b6 100644
+--- a/src/osd/modules/debugger/win/debugviewinfo.c
++++ b/src/osd/modules/debugger/win/debugviewinfo.c
+@@ -15,6 +15,8 @@
+ 
+ #include "strconv.h"
+ 
++#include "winutil.h"
++
+ 
+ // debugger view styles
+ #define DEBUG_VIEW_STYLE    WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN
+@@ -48,15 +50,15 @@ debugview_info::debugview_info(debugger_windows_interface &debugger, debugwin_in
+ 
+ 	// create the child view
+ 	m_wnd = CreateWindowEx(DEBUG_VIEW_STYLE_EX, TEXT("MAMEDebugView"), NULL, DEBUG_VIEW_STYLE,
+-			0, 0, 100, 100, parent, NULL, GetModuleHandle(NULL), this);
++		    0, 0, 100, 100, parent, NULL, GetModuleHandleUni(), this);
+ 	if (m_wnd == NULL)
+ 		goto cleanup;
+ 
+ 	// create the scroll bars
+ 	m_hscroll = CreateWindowEx(HSCROLL_STYLE_EX, TEXT("SCROLLBAR"), NULL, HSCROLL_STYLE,
+-			0, 0, 100, CW_USEDEFAULT, m_wnd, NULL, GetModuleHandle(NULL), this);
++			0, 0, 100, CW_USEDEFAULT, m_wnd, NULL, GetModuleHandleUni(), this);
+ 	m_vscroll = CreateWindowEx(VSCROLL_STYLE_EX, TEXT("SCROLLBAR"), NULL, VSCROLL_STYLE,
+-			0, 0, CW_USEDEFAULT, 100, m_wnd, NULL, GetModuleHandle(NULL), this);
++			0, 0, CW_USEDEFAULT, 100, m_wnd, NULL, GetModuleHandleUni(), this);
+ 	if ((m_hscroll == NULL) || (m_vscroll == NULL))
+ 		goto cleanup;
+ 
+@@ -254,7 +256,7 @@ HWND debugview_info::create_source_combobox(HWND parent, LONG_PTR userdata)
+ {
+ 	// create a combo box
+ 	HWND const result = CreateWindowEx(COMBO_BOX_STYLE_EX, TEXT("COMBOBOX"), NULL, COMBO_BOX_STYLE,
+-			0, 0, 100, 1000, parent, NULL, GetModuleHandle(NULL), NULL);
++			0, 0, 100, 1000, parent, NULL, GetModuleHandleUni(), NULL);
+ 	SetWindowLongPtr(result, GWLP_USERDATA, userdata);
+ 	SendMessage(result, WM_SETFONT, (WPARAM)metrics().debug_font(), (LPARAM)FALSE);
+ 
+@@ -789,7 +791,7 @@ void debugview_info::register_window_class()
+ 
+ 		// initialize the description of the window class
+ 		wc.lpszClassName    = TEXT("MAMEDebugView");
+-		wc.hInstance        = GetModuleHandle(NULL);
++		wc.hInstance        = GetModuleHandleUni();
+ 		wc.lpfnWndProc      = &debugview_info::static_view_proc;
+ 		wc.hCursor          = LoadCursor(NULL, IDC_ARROW);
+ 		wc.hIcon            = LoadIcon(wc.hInstance, MAKEINTRESOURCE(2));
+@@ -799,6 +801,8 @@ void debugview_info::register_window_class()
+ 		wc.cbClsExtra       = 0;
+ 		wc.cbWndExtra       = 0;
+ 
++        UnregisterClass(wc.lpszClassName, wc.hInstance);
++
+ 		// register the class; fail if we can't
+ 		if (!RegisterClass(&wc))
+ 			fatalerror("Unable to register debug view class\n");
+diff --git a/src/osd/modules/debugger/win/debugwininfo.c b/src/osd/modules/debugger/win/debugwininfo.c
+index 1a3258c..943c782 100644
+--- a/src/osd/modules/debugger/win/debugwininfo.c
++++ b/src/osd/modules/debugger/win/debugwininfo.c
+@@ -17,6 +17,8 @@
+ #include "window.h"
+ #include "winutf8.h"
+ 
++#include "winutil.h"
++
+ 
+ bool debugwin_info::s_window_class_registered = false;
+ 
+@@ -36,7 +38,7 @@ debugwin_info::debugwin_info(debugger_windows_interface &debugger, bool is_main_
+ 	register_window_class();
+ 
+ 	m_wnd = win_create_window_ex_utf8(DEBUG_WINDOW_STYLE_EX, "MAMEDebugWindow", title, DEBUG_WINDOW_STYLE,
+-			0, 0, 100, 100, win_window_list->m_hwnd, create_standard_menubar(), GetModuleHandle(NULL), this);
++			0, 0, 100, 100, win_window_list->m_hwnd, create_standard_menubar(), GetModuleHandleUni(), this);
+ 	if (m_wnd == NULL)
+ 		return;
+ 
+@@ -580,7 +582,7 @@ void debugwin_info::register_window_class()
+ 
+ 		// initialize the description of the window class
+ 		wc.lpszClassName    = TEXT("MAMEDebugWindow");
+-		wc.hInstance        = GetModuleHandle(NULL);
++		wc.hInstance        = GetModuleHandleUni();
+ 		wc.lpfnWndProc      = &debugwin_info::static_window_proc;
+ 		wc.hCursor          = LoadCursor(NULL, IDC_ARROW);
+ 		wc.hIcon            = LoadIcon(wc.hInstance, MAKEINTRESOURCE(2));
+@@ -590,6 +592,8 @@ void debugwin_info::register_window_class()
+ 		wc.cbClsExtra       = 0;
+ 		wc.cbWndExtra       = 0;
+ 
++        UnregisterClass(wc.lpszClassName, wc.hInstance);
++
+ 		// register the class; fail if we can't
+ 		if (!RegisterClass(&wc))
+ 			fatalerror("Unable to register debug window class\n");
+diff --git a/src/osd/modules/debugger/win/editwininfo.c b/src/osd/modules/debugger/win/editwininfo.c
+index 1ccd96f..279bc68 100644
+--- a/src/osd/modules/debugger/win/editwininfo.c
++++ b/src/osd/modules/debugger/win/editwininfo.c
+@@ -13,6 +13,8 @@
+ 
+ #include "strconv.h"
+ 
++#include "winutil.h"
++
+ 
+ // edit box styles
+ #define EDIT_BOX_STYLE      WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL
+@@ -32,7 +34,7 @@ editwin_info::editwin_info(debugger_windows_interface &debugger, bool is_main_co
+ 
+ 	// create an edit box and override its key handling
+ 	m_editwnd = CreateWindowEx(EDIT_BOX_STYLE_EX, TEXT("EDIT"), NULL, EDIT_BOX_STYLE,
+-			0, 0, 100, 100, window(), NULL, GetModuleHandle(NULL), NULL);
++			0, 0, 100, 100, window(), NULL, GetModuleHandleUni(), NULL);
+ 	m_original_editproc = (WNDPROC)(FPTR)GetWindowLongPtr(m_editwnd, GWLP_WNDPROC);
+ 	SetWindowLongPtr(m_editwnd, GWLP_USERDATA, (LONG_PTR)this);
+ 	SetWindowLongPtr(m_editwnd, GWLP_WNDPROC, (LONG_PTR)&editwin_info::static_edit_proc);
+diff --git a/src/osd/windows/input.c b/src/osd/windows/input.c
+index ec08277..ef2f310 100644
+--- a/src/osd/windows/input.c
++++ b/src/osd/windows/input.c
+@@ -38,6 +38,8 @@
+ #include "strconv.h"
+ #include "config.h"
+ 
++#include "winutil.h"
++
+ //============================================================
+ //  PARAMETERS
+ //============================================================
+@@ -1117,7 +1119,7 @@ static void dinput_init(running_machine &machine)
+ 	int didevtype_joystick = DI8DEVCLASS_GAMECTRL;
+ 
+ 	dinput_version = DIRECTINPUT_VERSION;
+-	result = DirectInput8Create(GetModuleHandle(NULL), dinput_version, IID_IDirectInput8, (void **)&dinput, NULL);
++	result = DirectInput8Create(GetModuleHandleUni(), dinput_version, IID_IDirectInput8, (void **)&dinput, NULL);
+ 	if (result != DI_OK)
+ 	{
+ 		dinput_version = 0;
+@@ -1130,17 +1132,17 @@ static void dinput_init(running_machine &machine)
+ 
+ 	// first attempt to initialize DirectInput at the current version
+ 	dinput_version = DIRECTINPUT_VERSION;
+-	result = DirectInputCreate(GetModuleHandle(NULL), dinput_version, &dinput, NULL);
++	result = DirectInputCreate(GetModuleHandleUni(), dinput_version, &dinput, NULL);
+ 	if (result != DI_OK)
+ 	{
+ 		// if that fails, try version 5
+ 		dinput_version = 0x0500;
+-		result = DirectInputCreate(GetModuleHandle(NULL), dinput_version, &dinput, NULL);
++		result = DirectInputCreate(GetModuleHandleUni(), dinput_version, &dinput, NULL);
+ 		if (result != DI_OK)
+ 		{
+ 			// if that fails, try version 3
+ 			dinput_version = 0x0300;
+-			result = DirectInputCreate(GetModuleHandle(NULL), dinput_version, &dinput, NULL);
++			result = DirectInputCreate(GetModuleHandleUni(), dinput_version, &dinput, NULL);
+ 			if (result != DI_OK)
+ 			{
+ 				dinput_version = 0;
+diff --git a/src/osd/windows/output.c b/src/osd/windows/output.c
+index 142488c..a818557 100644
+--- a/src/osd/windows/output.c
++++ b/src/osd/windows/output.c
+@@ -17,6 +17,8 @@
+ // MAMEOS headers
+ #include "output.h"
+ 
++#include "winutil.h"
++
+ 
+ 
+ //============================================================
+@@ -101,7 +103,7 @@ bool windows_osd_interface::output_init()
+ 						1, 1,
+ 						NULL,
+ 						NULL,
+-						GetModuleHandle(NULL),
++						GetModuleHandleUni(),
+ 						NULL);
+ 	assert(output_hwnd != NULL);
+ 
+@@ -167,9 +169,11 @@ static int create_window_class(void)
+ 
+ 		// initialize the description of the window class
+ 		wc.lpszClassName    = OUTPUT_WINDOW_CLASS;
+-		wc.hInstance        = GetModuleHandle(NULL);
++		wc.hInstance        = GetModuleHandleUni();
+ 		wc.lpfnWndProc      = output_window_proc;
+ 
++        UnregisterClass(wc.lpszClassName, wc.hInstance);
++
+ 		// register the class; fail if we can't
+ 		if (!RegisterClass(&wc))
+ 			return 1;
+diff --git a/src/osd/windows/window.c b/src/osd/windows/window.c
+index 1bb225f..70e1cb6 100644
+--- a/src/osd/windows/window.c
++++ b/src/osd/windows/window.c
+@@ -35,6 +35,8 @@
+ #include "config.h"
+ #include "winutf8.h"
+ 
++#include "winutil.h"
++
+ extern int drawnone_init(running_machine &machine, osd_draw_callbacks *callbacks);
+ extern int drawgdi_init(running_machine &machine, osd_draw_callbacks *callbacks);
+ extern int drawdd_init(running_machine &machine, osd_draw_callbacks *callbacks);
+@@ -885,11 +887,13 @@ static void create_window_class(void)
+ 
+ 		// initialize the description of the window class
+ 		wc.lpszClassName    = TEXT("MAME");
+-		wc.hInstance        = GetModuleHandle(NULL);
++		wc.hInstance        = GetModuleHandleUni();
+ 		wc.lpfnWndProc      = winwindow_video_window_proc_ui;
+ 		wc.hCursor          = LoadCursor(NULL, IDC_ARROW);
+ 		wc.hIcon            = LoadIcon(wc.hInstance, MAKEINTRESOURCE(2));
+ 
++        UnregisterClass(wc.lpszClassName, wc.hInstance);
++
+ 		// register the class; fail if we can't
+ 		if (!RegisterClass(&wc))
+ 			fatalerror("Failed to create window class\n");
+@@ -1191,7 +1195,7 @@ int win_window_info::complete_create()
+ 						monitorbounds.left() + 100, monitorbounds.top() + 100,
+ 						NULL,//(win_window_list != NULL) ? win_window_list->m_hwnd : NULL,
+ 						menu,
+-						GetModuleHandle(NULL),
++						GetModuleHandleUni(),
+ 						NULL);
+ 	if (m_hwnd == NULL)
+ 		return 1;
+diff --git a/src/osd/windows/winmain.c b/src/osd/windows/winmain.c
+index 54afff7..74317eb 100644
+--- a/src/osd/windows/winmain.c
++++ b/src/osd/windows/winmain.c
+@@ -1321,7 +1321,7 @@ FPTR symbol_manager::get_text_section_base()
+ 	dynamic_bind<PIMAGE_NT_HEADERS (WINAPI *)(PVOID)> image_nt_header(TEXT("dbghelp.dll"), "ImageNtHeader");
+ 
+ 	// start with the image base
+-	PVOID base = reinterpret_cast<PVOID>(GetModuleHandle(NULL));
++	PVOID base = reinterpret_cast<PVOID>(GetModuleHandleUni());
+ 	assert(base != NULL);
+ 
+ 	// make sure we have the functions we need
 diff --git a/src/osd/windows/winutil.c b/src/osd/windows/winutil.c
-index adc78c3..131a87d 100644
+index adc78c3..64e7c5b 100644
 --- a/src/osd/windows/winutil.c
 +++ b/src/osd/windows/winutil.c
 @@ -78,6 +78,9 @@ osd_dir_entry_type win_attributes_to_entry_type(DWORD attributes)
@@ -199,8 +448,43 @@ index adc78c3..131a87d 100644
  BOOL win_is_gui_application(void)
  {
 +#if defined (C_IDA_DEBUG)
-+	return FALSE;
++    return FALSE;
 +#endif
  	static BOOL is_gui_frontend;
  	static BOOL is_first_time = TRUE;
  	HMODULE module;
+@@ -92,7 +95,7 @@ BOOL win_is_gui_application(void)
+ 		is_first_time = FALSE;
+ 
+ 		// get the current module
+-		module = GetModuleHandle(NULL);
++		module = GetModuleHandleUni();
+ 		if (!module)
+ 			return FALSE;
+ 		image_ptr = (BYTE*) module;
+@@ -122,3 +125,14 @@ BOOL win_is_gui_application(void)
+ 	}
+ 	return is_gui_frontend;
+ }
++
++//-------------------------------------------------
++//  Universal way to get module handle
++//-------------------------------------------------
++
++HMODULE WINAPI GetModuleHandleUni()
++{
++	MEMORY_BASIC_INFORMATION mbi;
++	VirtualQuery((LPCVOID)GetModuleHandleUni, &mbi, sizeof(mbi));
++	return (HMODULE)mbi.AllocationBase;
++}
+diff --git a/src/osd/windows/winutil.h b/src/osd/windows/winutil.h
+index 7a469a2..c8d1190 100644
+--- a/src/osd/windows/winutil.h
++++ b/src/osd/windows/winutil.h
+@@ -15,5 +15,6 @@
+ file_error win_error_to_file_error(DWORD error);
+ osd_dir_entry_type win_attributes_to_entry_type(DWORD attributes);
+ BOOL win_is_gui_application(void);
++HMODULE WINAPI GetModuleHandleUni();
+ 
+ #endif // __WINUTIL__

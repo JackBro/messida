@@ -13,7 +13,6 @@
 
 #include "emu.h"
 #include "debugcpu.h"
-#include "debugcon.h"
 
 #include "mess_debmod.h"
 #include "nargv.h"
@@ -161,33 +160,39 @@ std::fstream ConsoleInput, ConsoleOutput, ConsoleError;
 
 static void create_console()
 {
-	// Create a new console window.
-	if (!AllocConsole()) return;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	SetConsoleTitle("MESS Console");
+    // Create a new console window.
+    if (!AllocConsole()) return;
 
-	CinBuffer = std::cin.rdbuf();
-	CoutBuffer = std::cout.rdbuf();
-	CerrBuffer = std::cerr.rdbuf();
-	ConsoleInput.open("CONIN$", std::ios::in);
-	ConsoleOutput.open("CONOUT$", std::ios::out);
-	ConsoleError.open("CONOUT$", std::ios::out);
-	std::cin.rdbuf(ConsoleInput.rdbuf());
-	std::cout.rdbuf(ConsoleOutput.rdbuf());
-	std::cerr.rdbuf(ConsoleError.rdbuf());
+    SetConsoleTitle("MESS Console");
+
+    // Set the screen buffer to be larger than normal (this is optional).
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+    {
+        csbi.dwSize.Y = 1; // any useful number of lines...
+        SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), csbi.dwSize);
+    }
+
+    // Redirect "stdin" to the console window.
+    if (!freopen("conin$", "r+t", stdin)) return;
+
+    // Redirect "stderr" to the console window.
+    if (!freopen("conout$", "w+t", stderr)) return;
+
+    // Redirect "stdout" to the console window.
+    if (!freopen("conout$", "w+t", stdout)) return;
+
+    // Turn off buffering for "stdout" ("stderr" is unbuffered by default).
+
+    setbuf(stdout, NULL);
 }
 
 static void close_console()
 {
-	ConsoleInput.close();
-	ConsoleOutput.close();
-	ConsoleError.close();
-	std::cin.rdbuf(CinBuffer);
-	std::cout.rdbuf(CoutBuffer);
-	std::cerr.rdbuf(CerrBuffer);
-	CinBuffer = NULL;
-	CoutBuffer = NULL;
-	CerrBuffer = NULL;
+    fclose(stdin);
+    fclose(stderr);
+    fclose(stdout);
 
 	FreeConsole();
 }
@@ -231,57 +236,6 @@ static void apply_codemap()
 	msg("Codemap applied.\n");
 }
 
-static bool idaapi execute_mess_cmd(void *ud)
-{
-	const char *exec = askstr(HIST_CMD, "", "Enter debugger command here:\n");
-
-	if (!exec) return false;
-
-	CMDERR _error = debug_console_execute_command(*g_running_machine, exec, TRUE);
-
-	return (_error == CMDERR_NONE);
-}
-
-static int req_id = 0;
-bool mess_menu_added = false;
-#define MESS_MENU_RUN_CMD "Execute MESS command..."
-
-//---------------------------------------------------------------------------
-void remove_mess_menu()
-{
-	if (mess_menu_added)
-		del_menu_item("Debugger/" MESS_MENU_RUN_CMD);
-	else
-		cancel_exec_request(req_id);
-	mess_menu_added = false;
-	req_id = 0;
-}
-
-//---------------------------------------------------------------------------
-void install_mess_menu()
-{
-	// HACK: We queue this request because commdbg apparently enables the debug menus
-	//       just after calling init_debugger().
-	struct uireq_install_menu_t : public ui_request_t
-	{
-		virtual bool idaapi run()
-		{
-			if (!mess_menu_added)
-			{
-				mess_menu_added = add_menu_item("Debugger/StepInto",
-					MESS_MENU_RUN_CMD,
-					NULL,
-					SETMENU_INS | SETMENU_CTXAPP,
-					execute_mess_cmd,
-					NULL);
-				enable_menu_item("Debugger/" MESS_MENU_RUN_CMD, false);
-			}
-			return false;
-		}
-	};
-	req_id = execute_ui_requests(new uireq_install_menu_t, NULL);
-}
-
 static void pause_execution()
 {
 	get_debugger()->halt_on_next_instruction("");
@@ -296,6 +250,7 @@ static void continue_execution()
 static void finish_execution()
 {
 	qthread_join(mess_thread);
+    qthread_free(mess_thread);
 	qthread_kill(mess_thread);
 	g_running_machine = NULL;
 	stopped = true;
@@ -309,7 +264,6 @@ static bool idaapi init_debugger(const char *hostname,
 	int port_num,
 	const char *password)
 {
-	install_mess_menu();
 	create_console();
 	set_process_options(NULL, "genesis", NULL, NULL, NULL, 0);
 	SetCurrentDirectoryA(idadir("plugins"));
@@ -321,7 +275,6 @@ static bool idaapi init_debugger(const char *hostname,
 // This function is called from the main thread
 static bool idaapi term_debugger(void)
 {
-	enable_menu_item("Debugger/" MESS_MENU_RUN_CMD, false);
 	close_console();
 	return true;
 }
@@ -375,8 +328,6 @@ static int idaapi start_process(const char *path,
 	const char *input_path,
 	uint32 input_file_crc32)
 {
-	enable_menu_item("Debugger/" MESS_MENU_RUN_CMD, true);
-
 	char szModule[MAX_PATH];
 	GetPluginName(szModule);
 
