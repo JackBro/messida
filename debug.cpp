@@ -1,7 +1,5 @@
 #include <Windows.h>
-#include <streambuf>
-#include <fstream>
-#include <iostream>
+#include <algorithm>
 #include <ida.hpp>
 #include <idd.hpp>
 #include <dbg.hpp>
@@ -154,9 +152,6 @@ static ea_t get_current_pc()
 {
 	return get_reg_value(R_PC);
 }
-
-std::streambuf *CinBuffer, *CoutBuffer, *CerrBuffer;
-std::fstream ConsoleInput, ConsoleOutput, ConsoleError;
 
 static void create_console()
 {
@@ -584,7 +579,35 @@ static int idaapi write_register(thid_t tid, int regidx, const regval_t *value)
 // This function is called from debthread
 static int idaapi get_memory_info(meminfo_vec_t &areas)
 {
-	return -3;
+    memory_info_t mi;
+    mi.startEA = 0xb0000000;
+    mi.endEA = 0xb000ffff + 1;
+    mi.name = "VDP_VRAM";
+    mi.sclass = "DATA";
+    mi.sbase = 0;
+    mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
+    mi.bitness = 1;
+    areas.push_back(mi);
+
+    mi.startEA = 0xb1000000;
+    mi.endEA = 0xb100007f + 1;
+    mi.name = "VDP_VSRAM";
+    mi.sclass = "DATA";
+    mi.sbase = 0;
+    mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
+    mi.bitness = 1;
+    areas.push_back(mi);
+
+    mi.startEA = 0xb2000000;
+    mi.endEA = 0xb200007f + 1;
+    mi.name = "VDP_CRAM";
+    mi.sclass = "DATA";
+    mi.sbase = 0;
+    mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
+    mi.bitness = 1;
+    areas.push_back(mi);
+
+	return 1;
 }
 
 static size_t mess_memory_read(ea_t ea, void *buffer, size_t size)
@@ -596,6 +619,48 @@ static size_t mess_memory_read(ea_t ea, void *buffer, size_t size)
 	return size;
 }
 
+static void *find_region(const char *region, size_t *size)
+{
+    for (int itemnum = 0; itemnum < 10000; itemnum++)
+    {
+        // stop when we run out of items
+        UINT32 valsize, valcount;
+        void *base;
+        const char *itemname = get_running_machine()->save().indexed_item(itemnum, base, valsize, valcount);
+        if (itemname == NULL)
+            break;
+
+        // add pretty much anything that's not a timer (we may wish to cull other items later)
+        // also, don't trim the front of the name, it's important to know which VIA6522 we're looking at, e.g.
+        std::string name;
+        name.assign(itemname);
+        std::size_t pos = name.find_last_of("/");
+        if (name.substr(pos + 1) == region)
+        {
+            *size = (size_t)(valsize * valcount);
+            return base;
+        }
+    }
+
+    return NULL;
+}
+
+static size_t mess_vdp_read(const char *region, ea_t ea, void *buffer, size_t size)
+{
+    size_t real_size = 0;
+    UINT8 *ptr = (UINT8 *)find_region(region, &real_size);
+
+    if (!(ptr || real_size))
+        return 0;
+
+    real_size = std::min(real_size, size);
+    for (size_t i = 0; i < real_size; ++i)
+    {
+        ((UINT8*)buffer)[i] = ptr[i];
+    }
+    return real_size;
+}
+
 // Read process memory
 // Returns number of read bytes
 // 0 means read error
@@ -604,7 +669,18 @@ static size_t mess_memory_read(ea_t ea, void *buffer, size_t size)
 static ssize_t idaapi read_memory(ea_t ea, void *buffer, size_t size)
 {
 	CHECK_FOR_START(0);
-	return mess_memory_read(ea, buffer, size);
+
+    char name[20];
+    get_segm_name(ea, name, sizeof(name));
+
+    if (!qstrcmp(name, "VDP_VRAM"))
+        return mess_vdp_read("m_vram", ea, buffer, size);
+    else if (!qstrcmp(name, "VDP_VSRAM"))
+        return mess_vdp_read("m_vsram", ea, buffer, size);
+    else if (!qstrcmp(name, "VDP_CRAM"))
+        return mess_vdp_read("m_cram", ea, buffer, size);
+    else
+        return mess_memory_read(ea, buffer, size);
 }
 
 static size_t mess_memory_write(ea_t ea, const void *buffer, size_t size)
@@ -616,12 +692,38 @@ static size_t mess_memory_write(ea_t ea, const void *buffer, size_t size)
 	return size;
 }
 
+static size_t mess_vdp_write(const char *region, ea_t ea, const void *buffer, size_t size)
+{
+    size_t real_size = 0;
+    UINT8 *ptr = (UINT8 *)find_region(region, &real_size);
+
+    if (!(ptr || real_size))
+        return 0;
+
+    real_size = std::min(real_size, size);
+    for (size_t i = 0; i < real_size; ++i)
+    {
+        ptr[i] = ((UINT8*)buffer)[i];
+    }
+    return real_size;
+}
+
 // Write process memory
 // Returns number of written bytes, -1-fatal error
 // This function is called from debthread
 static ssize_t idaapi write_memory(ea_t ea, const void *buffer, size_t size)
 {
-	return mess_memory_write(ea, buffer, size);
+    char name[20];
+    get_segm_name(ea, name, sizeof(name));
+
+    if (!qstrcmp(name, "VDP_VRAM"))
+        return mess_vdp_write("m_vram", ea, buffer, size);
+    else if (!qstrcmp(name, "VDP_VSRAM"))
+        return mess_vdp_write("m_vsram", ea, buffer, size);
+    else if (!qstrcmp(name, "VDP_CRAM"))
+        return mess_vdp_write("m_cram", ea, buffer, size);
+    else
+        return mess_memory_write(ea, buffer, size);
 }
 
 // Is it possible to set breakpoint?
@@ -729,18 +831,6 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 	return cnt;
 }
 
-// Update low-level (server side) breakpoint conditions
-// Returns nlowcnds. -1-network error
-// This function is called from debthread
-static int idaapi update_lowcnds(const lowcnd_t *lowcnds, int nlowcnds)
-{
-	for (int i = 0; i < nlowcnds; ++i)
-	{
-	}
-
-	return nlowcnds;
-}
-
 int main()
 {
 	return 0;
@@ -805,7 +895,7 @@ debugger_t debugger =
 
 	is_ok_bpt,
 	update_bpts,
-	update_lowcnds,
+	NULL, // update_lowcnds,
 
 	NULL, // open_file
 	NULL, // close_file
