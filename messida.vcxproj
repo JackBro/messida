@@ -53,7 +53,7 @@
       <AdditionalIncludeDirectories>$(IDA_SDK)\include;..\..\src\emu\debug;..\dxsdk\Include;..\..\src\osd;..\..\src\emu;..\..\src\mame;..\..\src\lib;..\..\src\lib\util;..\;..\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__NT__;__IDP__;USE_STANDARD_FILE_FUNCTIONS;INLINE=static inline;CRLF=3;LSB_FIRST;FLAC__NO_DLL;LUA_COMPAT_APIINTCASTS;XML_STATIC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;WIN32;_WIN32;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">NATIVE_DRC=drcbe_x86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">MAME_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">MAME_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild Condition="'$(Configuration)'=='Debug'">true</MinimalRebuild>
       <MinimalRebuild Condition="'$(Configuration)'=='Release'">false</MinimalRebuild>

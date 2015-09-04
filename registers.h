@@ -27,6 +27,31 @@ enum register_t
 	R_USP,
 
 	R_SR,
+
+    R_DR00,
+    R_DR01,
+    R_DR02,
+    R_DR03,
+    R_DR04,
+    R_DR05,
+    R_DR06,
+    R_DR07,
+    R_DR08,
+    R_DR09,
+    R_DR10,
+    R_DR11,
+    R_DR12,
+    R_DR13,
+    R_DR14,
+    R_DR15,
+    R_DR16,
+    R_DR17,
+    R_DR18,
+    R_DR19,
+    R_DR20,
+    R_DR21,
+    R_DR22,
+    R_DR23,
 };
 
 #endif
