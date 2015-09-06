@@ -335,7 +335,6 @@ static bool idaapi init_debugger(const char *hostname,
 {
 	create_console();
 	set_process_options(NULL, "genesis", NULL, NULL, NULL, 0);
-	SetCurrentDirectoryA(idadir("plugins"));
 	return true;
 }
 
@@ -368,7 +367,9 @@ static void GetPluginName(char *szModule)
 
 static int idaapi mess_process(void *ud)
 {
-	int rc;
+    SetCurrentDirectoryA(idadir("plugins"));
+    
+    int rc;
 
 	NARGV *params = (NARGV *)ud;
 	rc = utf8_main(params->argc, params->argv);
