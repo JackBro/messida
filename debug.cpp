@@ -648,7 +648,7 @@ static int idaapi read_registers(thid_t tid, int clsmask, regval_t *values)
         values[R_DR00].ival = get_vdp_reg_value(R_DR00);
         values[R_DR01].ival = get_vdp_reg_value(R_DR01);
         values[R_DR02].ival = (get_vdp_reg_value(R_DR02) & mask(3, 3)) << 10;
-        values[R_DR03].ival = (get_vdp_reg_value(R_DR03) & mask(3, 3)) << 10;
+        values[R_DR03].ival = (get_vdp_reg_value(R_DR03) & mask(1, 5)) << 10;
         values[R_DR04].ival = (get_vdp_reg_value(R_DR04) & mask(0, 3)) << 13;
         values[R_DR05].ival = (get_vdp_reg_value(R_DR05) & mask(0, 7)) << 9;
         values[R_DR06].ival = get_vdp_reg_value(R_DR06);
@@ -695,9 +695,12 @@ static int idaapi write_register(thid_t tid, int regidx, const regval_t *value)
         switch ((register_t)regidx)
         {
         case R_DR02:
-        case R_DR03:
             val.ival >>= 10;
             val.ival &= mask(3, 3);
+            break;
+        case R_DR03:
+            val.ival >>= 10;
+            val.ival &= mask(1, 5);
             break;
         case R_DR04:
             val.ival >>= 13;
