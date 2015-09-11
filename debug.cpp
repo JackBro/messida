@@ -127,6 +127,8 @@ register_info_t registers[] =
     { "DMA_SRC", NULL, RC_VDP, dt_3byte, NULL, 0 },
     //{ "DMA_SRC_MID", NULL, RC_VDP, dt_byte, NULL, 0 },
     //{ "DMA_SRC_HIGH", NULL, RC_VDP, dt_byte, NULL, 0 },
+
+    { "WRITE_POSITION", REGISTER_READONLY, RC_VDP, dt_word, NULL, 0 }
 };
 
 static const char *register_classes[] =
@@ -188,6 +190,17 @@ static void *find_region(const char *region, char delim, size_t *size)
     }
 
     return NULL;
+}
+
+static UINT16 get_vdp_write_pos()
+{
+    size_t real_size = 0;
+    UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_vdp_address", ':', &real_size);
+
+    if (!(ptr || real_size))
+        return 0;
+
+    return ptr[0];
 }
 
 static UINT16 get_vdp_reg_value(register_t idx)
@@ -659,6 +672,7 @@ static int idaapi read_registers(thid_t tid, int clsmask, regval_t *values)
             values[R_DR18].ival |= ((get_vdp_reg_value(R_DR23) & mask(0, 6)) << 16);
         values[R_DR18].ival <<= 1;
         
+        values[R_DR19].ival = get_vdp_write_pos();
     }
 
 	return 1;

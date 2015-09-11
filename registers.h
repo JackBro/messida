@@ -52,6 +52,8 @@ enum register_t
     R_DR21,
     R_DR22,
     R_DR23,
+
+    R_VDP_WRITE_POS,
 };
 
 #endif
