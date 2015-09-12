@@ -589,9 +589,6 @@ static int do_step(dbg_notification_t idx)
 	case dbg_step_until_ret:
 		get_debugger()->single_step_out();
 		break;
-
-	default:
-		return 0;
 	}
 
 	return 1;
@@ -767,6 +764,28 @@ static int idaapi write_register(thid_t tid, int regidx, const regval_t *value)
 static int idaapi get_memory_info(meminfo_vec_t &areas)
 {
     memory_info_t mi;
+
+    for (int i = 0; i < get_segm_qty(); ++i)
+    {
+        char buf[MAX_PATH];
+        
+        segment_t *segm = getnseg(i);
+
+        mi.startEA = segm->startEA;
+        mi.endEA = segm->endEA;
+
+        get_segm_name(segm, buf, sizeof(buf));
+        mi.name = buf;
+
+        get_segm_class(segm, buf, sizeof(buf));
+        mi.sclass = buf;
+
+        mi.sbase = 0;
+        mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
+        mi.bitness = 1;
+        areas.push_back(mi);
+    }
+
     mi.startEA = 0xb0000000;
     mi.endEA = 0xb000ffff + 1;
     mi.name = "VDP_VRAM";
