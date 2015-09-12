@@ -834,9 +834,10 @@ static size_t mess_vdp_read(const char *region, ea_t ea, void *buffer, size_t si
         return 0;
 
     real_size = std::min(real_size, size);
-    for (size_t i = 0; i < real_size; ++i)
+    for (size_t i = 0; i < real_size; i += 2)
     {
-        ((UINT8*)buffer)[i] = ptr[i];
+        ((UINT8*)buffer)[i] = ptr[i + 1];
+        ((UINT8*)buffer)[i + 1] = ptr[i];
     }
     return real_size;
 }
@@ -881,9 +882,10 @@ static size_t mess_vdp_write(const char *region, ea_t ea, const void *buffer, si
         return 0;
 
     real_size = std::min(real_size, size);
-    for (size_t i = 0; i < real_size; ++i)
+    for (size_t i = 0; i < real_size; i += 2)
     {
-        ptr[i] = ((UINT8*)buffer)[i];
+        ptr[i + 1] = ((UINT8*)buffer)[i];
+        ptr[i] = ((UINT8*)buffer)[i + 1];
     }
     return real_size;
 }
@@ -992,17 +994,17 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 		cnt++;
 
 		int idx;
-		switch (bpts[i].type)
+        switch (bpts[nadd + i].type)
 		{
 		case BPT_EXEC:
-			if ((idx = get_bpt_index(bpts[i].ea)) >= 0)
+            if ((idx = get_bpt_index(bpts[nadd + i].ea)) >= 0)
 				get_debugger()->breakpoint_clear(idx);
 			break;
 
 		case BPT_READ:
 		case BPT_WRITE:
 		case BPT_RDWR:
-			if ((idx = get_wpt_index(bpts[i].ea)) >= 0)
+            if ((idx = get_wpt_index(bpts[nadd + i].ea)) >= 0)
 				get_debugger()->watchpoint_clear(idx);
 			break;
 		}
