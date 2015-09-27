@@ -30,11 +30,30 @@
 #include "mess_debmod.h"
 #include "registers.h"
 
+#include "resource.h"
+#include "vdp_ram.h"
+
 extern debugger_t debugger;
 extern running_machine *g_running_machine;
 
 static bool plugin_inited;
 static bool dbg_started;
+
+HWND VDPRamHWnd = NULL;
+//HINSTANCE g_hinstance = NULL;
+//HWND HWnd = NULL;
+int DialogsOpen = 0;
+
+LRESULT CALLBACK VDPRamProc(HWND, UINT, WPARAM, LPARAM);
+
+static HINSTANCE GetHInstance()
+{
+    MEMORY_BASIC_INFORMATION mbi;
+    SetLastError(ERROR_SUCCESS);
+    VirtualQuery(GetHInstance, &mbi, sizeof(mbi));
+
+    return (HINSTANCE)mbi.AllocationBase;
+}
 
 static char *get_type(int type)
 {
@@ -93,6 +112,20 @@ static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
 	return 0;
 }
 
+static bool idaapi create_vdp_ram_window(void *ud)
+{
+    if (!VDPRamHWnd)
+    {
+        //HWnd = (HWND)callui(ui_get_hwnd).vptr;
+        VDPRamHWnd = CreateDialog(GetHInstance(), MAKEINTRESOURCE(IDD_VDPRAM), NULL, (DLGPROC)VDPRamProc);
+        DialogsOpen++;
+    }
+    else
+        SetForegroundWindow(VDPRamHWnd);
+
+    return true;
+}
+
 static bool idaapi execute_mess_cmd(void *ud)
 {
     const char *exec = askstr(HIST_CMD, "", "Enter debugger command here:\n");
@@ -105,6 +138,7 @@ static bool idaapi execute_mess_cmd(void *ud)
 }
 
 #define MESS_MENU_RUN_CMD "Execute MESS command..."
+#define SHELL_MOD_VRAM "VRAM View..."
 
 //---------------------------------------------------------------------------
 static void remove_mess_menu()
@@ -125,6 +159,28 @@ static void install_mess_menu()
             NULL);
 }
 
+static void remove_shell_vram_menu()
+{
+    if (dbg_started)
+    {
+        DestroyWindow(VDPRamHWnd);
+        VDPRamHWnd = NULL;
+        del_menu_item("Debugger/" SHELL_MOD_VRAM);
+    }
+}
+
+//---------------------------------------------------------------------------
+static void install_shell_vram_menu()
+{
+    if (dbg_started)
+        add_menu_item("Debugger/StepInto",
+        SHELL_MOD_VRAM,
+        NULL,
+        SETMENU_INS | SETMENU_CTXAPP,
+        create_vdp_ram_window,
+        NULL);
+}
+
 static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 {
 	switch (notification_code)
@@ -132,10 +188,12 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	case dbg_notification_t::dbg_process_start:
         dbg_started = true;
         install_mess_menu();
+        install_shell_vram_menu();
 		break;
 
 	case dbg_notification_t::dbg_process_exit:
         remove_mess_menu();
+        remove_shell_vram_menu();
         dbg_started = false;
 	}
 	return 0;
@@ -166,7 +224,7 @@ static int idaapi idp_to_dbg_reg(int idp_reg)
 
 static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 {
-	switch (notification_code)
+    switch (notification_code)
 	{
 	case ui_notification_t::ui_get_custom_viewer_hint:
 	{

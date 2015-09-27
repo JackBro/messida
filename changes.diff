@@ -1,5 +1,5 @@
 diff --git a/src/emu/debug/debugcon.c b/src/emu/debug/debugcon.c
-index f52e166..6a06848 100644
+index f52e166..a3ea6a2 100644
 --- a/src/emu/debug/debugcon.c
 +++ b/src/emu/debug/debugcon.c
 @@ -17,6 +17,11 @@
@@ -24,20 +24,8 @@ index f52e166..6a06848 100644
  	}
  	return result;
  }
-@@ -481,7 +488,11 @@ void CLIB_DECL debug_console_printf(running_machine &machine, const char *format
- 	strvprintf(buffer, format, arg);
- 	va_end(arg);
- 
-+#if !defined (C_IDA_DEBUG)
- 	text_buffer_print(console_textbuf, buffer.c_str());
-+#else
-+    printf("%s\n", buffer.c_str());
-+#endif
- 
- 	/* force an update of any console views */
- 	machine.debug_view().update_all(DVT_CONSOLE);
 diff --git a/src/emu/debug/debugcpu.c b/src/emu/debug/debugcpu.c
-index 4803052..651d1ad 100644
+index 4803052..01228d8 100644
 --- a/src/emu/debug/debugcpu.c
 +++ b/src/emu/debug/debugcpu.c
 @@ -22,6 +22,15 @@
@@ -56,18 +44,17 @@ index 4803052..651d1ad 100644
  
  /***************************************************************************
      CONSTANTS
-@@ -1702,6 +1711,10 @@ device_debug::~device_debug()
+@@ -1702,6 +1711,9 @@ device_debug::~device_debug()
  
  void device_debug::start_hook(const attotime &endtime)
  {
 +#if defined (C_IDA_DEBUG)
 +	g_running_machine = &m_device.machine();
 +#endif
-+
  	debugcpu_private *global = m_device.machine().debugcpu_data;
  
  	assert((m_device.machine().debug_flags & DEBUG_FLAG_ENABLED) != 0);
-@@ -1822,6 +1835,11 @@ void device_debug::exception_hook(int exception)
+@@ -1822,6 +1834,11 @@ void device_debug::exception_hook(int exception)
  
  void device_debug::instruction_hook(offs_t curpc)
  {
@@ -79,7 +66,7 @@ index 4803052..651d1ad 100644
  	running_machine &machine = m_device.machine();
  	debugcpu_private *global = machine.debugcpu_data;
  
-@@ -1862,7 +1880,19 @@ void device_debug::instruction_hook(offs_t curpc)
+@@ -1862,7 +1879,19 @@ void device_debug::instruction_hook(offs_t curpc)
  
  			// if we hit 0, stop
  			if (m_stepsleft == 0)
@@ -99,7 +86,7 @@ index 4803052..651d1ad 100644
  
  			// update every 100 steps until we are within 200 of the end
  			else if ((m_flags & DEBUG_FLAG_STEPPING_OUT) == 0 && (m_stepsleft < 200 || m_stepsleft % 100 == 0))
-@@ -1887,6 +1917,16 @@ void device_debug::instruction_hook(offs_t curpc)
+@@ -1887,6 +1916,16 @@ void device_debug::instruction_hook(offs_t curpc)
  		// check the temp running breakpoint and break if we hit it
  		else if ((m_flags & DEBUG_FLAG_STOP_PC) != 0 && m_stopaddr == curpc)
  		{
@@ -116,7 +103,7 @@ index 4803052..651d1ad 100644
  			debug_console_printf(machine, "Stopped at temporary breakpoint %X on CPU '%s'\n", m_stopaddr, m_device.tag());
  			global->execution_state = EXECUTION_STATE_STOPPED;
  		}
-@@ -1930,8 +1970,13 @@ void device_debug::instruction_hook(offs_t curpc)
+@@ -1930,8 +1969,13 @@ void device_debug::instruction_hook(offs_t curpc)
  
  			// clear the memory modified flag and wait
  			global->memory_modified = false;
@@ -130,7 +117,7 @@ index 4803052..651d1ad 100644
  			firststop = false;
  
  			// if something modified memory, update the screen
-@@ -2901,6 +2946,19 @@ void device_debug::breakpoint_check(offs_t pc)
+@@ -2901,6 +2945,19 @@ void device_debug::breakpoint_check(offs_t pc)
  		if (bp->hit(pc))
  		{
  			// halt in the debugger by default
@@ -150,7 +137,7 @@ index 4803052..651d1ad 100644
  			debugcpu_private *global = m_device.machine().debugcpu_data;
  			global->execution_state = EXECUTION_STATE_STOPPED;
  
-@@ -2920,6 +2978,19 @@ void device_debug::breakpoint_check(offs_t pc)
+@@ -2920,6 +2977,19 @@ void device_debug::breakpoint_check(offs_t pc)
  		if (rp->hit())
  		{
  			// halt in the debugger by default
@@ -162,7 +149,7 @@ index 4803052..651d1ad 100644
 +			ev.ea = pc;
 +			ev.handled = true;
 +
-+			ev.bpt.hea = BADADDR;
++            ev.bpt.hea = BADADDR;
 +			ev.bpt.kea = BADADDR;
 +
 +			g_events.enqueue(ev, IN_BACK);
@@ -170,7 +157,7 @@ index 4803052..651d1ad 100644
  			debugcpu_private *global = m_device.machine().debugcpu_data;
  			global->execution_state = EXECUTION_STATE_STOPPED;
  
-@@ -3031,6 +3102,19 @@ void device_debug::watchpoint_check(address_space &space, int type, offs_t addre
+@@ -3031,6 +3101,19 @@ void device_debug::watchpoint_check(address_space &space, int type, offs_t addre
  		if (wp->hit(type, address, size))
  		{
  			// halt in the debugger by default
@@ -182,14 +169,74 @@ index 4803052..651d1ad 100644
 +			ev.ea = pc();
 +			ev.handled = true;
 +
-+			ev.bpt.hea = address;
-+			ev.bpt.kea = address;
++            ev.bpt.hea = address;
++            ev.bpt.kea = address;
 +
 +			g_events.enqueue(ev, IN_BACK);
 +#endif
  			global->execution_state = EXECUTION_STATE_STOPPED;
  
  			// if we hit, evaluate the action
+diff --git a/src/emu/emucore.c b/src/emu/emucore.c
+index 9d8917d..f4e2f95 100644
+--- a/src/emu/emucore.c
++++ b/src/emu/emucore.c
+@@ -12,6 +12,15 @@
+ #include "emucore.h"
+ #include "osdcore.h"
+ 
++#if defined (C_IDA_DEBUG)
++#include <Windows.h>
++
++void send_exception(const char *info)
++{
++    MessageBoxA(0, info, "Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
++}
++#endif
++
+ emu_fatalerror::emu_fatalerror(const char *format, ...)
+ : code(0)
+ {
+@@ -27,6 +36,9 @@ emu_fatalerror::emu_fatalerror(const char *format, ...)
+ 		va_end(ap);
+ 	}
+ 	osd_break_into_debugger(text);
++#if defined (C_IDA_DEBUG)
++    send_exception(text);
++#endif
+ }
+ 
+ emu_fatalerror::emu_fatalerror(const char *format, va_list ap)
+@@ -41,6 +53,9 @@ emu_fatalerror::emu_fatalerror(const char *format, va_list ap)
+ 		vsnprintf(text, sizeof(text), format, ap);
+ 	}
+ 	osd_break_into_debugger(text);
++#if defined (C_IDA_DEBUG)
++    send_exception(text);
++#endif
+ }
+ 
+ emu_fatalerror::emu_fatalerror(int _exitcode, const char *format, ...)
+@@ -57,6 +72,9 @@ emu_fatalerror::emu_fatalerror(int _exitcode, const char *format, ...)
+ 		vsnprintf(text, sizeof(text), format, ap);
+ 		va_end(ap);
+ 	}
++#if defined (C_IDA_DEBUG)
++    send_exception(text);
++#endif
+ }
+ 
+ emu_fatalerror::emu_fatalerror(int _exitcode, const char *format, va_list ap)
+@@ -70,6 +88,9 @@ emu_fatalerror::emu_fatalerror(int _exitcode, const char *format, va_list ap)
+ 	{
+ 		vsnprintf(text, sizeof(text), format, ap);
+ 	}
++#if defined (C_IDA_DEBUG)
++    send_exception(text);
++#endif
+ }
+ 
+ 
 diff --git a/src/osd/windows/winutil.c b/src/osd/windows/winutil.c
 index c34e358..64e7c5b 100644
 --- a/src/osd/windows/winutil.c

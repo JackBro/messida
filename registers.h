@@ -1,6 +1,9 @@
 #ifndef __REGISTERS_H__
 #define __REGISTERS_H__
 
+#define RC_GENERAL 1
+#define RC_VDP 2
+
 enum register_t
 {
 	R_D0,

@@ -16,8 +16,11 @@
 #include "nargv.h"
 
 #include "registers.h"
+#include "vdp_ram.h"
 
 extern int utf8_main(int argc, char *argv[]);
+
+extern HWND VDPRamHWnd;
 
 codemap_t g_codemap;
 running_machine *g_running_machine = NULL;
@@ -27,8 +30,6 @@ static bool stopped;
 static qthread_t mess_thread;
 
 #define CHECK_FOR_START(x) {if (stopped) return x;}
-#define RC_GENERAL 1
-#define RC_VDP 2
 
 static char *register_str_t[] = {
 	"d0",
@@ -331,6 +332,8 @@ static void continue_execution()
 
 static void finish_execution()
 {
+    if (stopped) return;
+    stopped = true;
 	qthread_join(mess_thread);
     qthread_free(mess_thread);
 	qthread_kill(mess_thread);
@@ -355,6 +358,7 @@ static bool idaapi init_debugger(const char *hostname,
 // This function is called from the main thread
 static bool idaapi term_debugger(void)
 {
+    finish_execution();
 	close_console();
 	return true;
 }
@@ -370,11 +374,11 @@ static int idaapi process_get_info(int n, process_info_t *info)
 
 static void GetPluginName(char *szModule)
 {
-	MEMORY_BASIC_INFORMATION mbi;
-	SetLastError(ERROR_SUCCESS);
-	VirtualQuery(GetPluginName, &mbi, sizeof(mbi));
+    MEMORY_BASIC_INFORMATION mbi;
+    SetLastError(ERROR_SUCCESS);
+    VirtualQuery(GetPluginName, &mbi, sizeof(mbi));
 
-	GetModuleFileNameA((HINSTANCE)mbi.AllocationBase, (LPSTR)szModule, 2048);
+    GetModuleFileNameA((HINSTANCE)mbi.AllocationBase, (LPSTR)szModule, 2048);
 }
 
 static int idaapi mess_process(void *ud)
@@ -394,8 +398,6 @@ static int idaapi mess_process(void *ud)
     ev.exit_code = rc;
 
     g_events.enqueue(ev, IN_BACK);
-
-    stopped = true;
 
 	return rc;
 }
@@ -500,7 +502,9 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 {
 	while (true)
 	{
-		// are there any pending events?
+        if (!stopped)
+            Update_VDP_RAM();
+        // are there any pending events?
 		if (g_events.retrieve(event))
 		{
             if (event->eid != PROCESS_EXIT)

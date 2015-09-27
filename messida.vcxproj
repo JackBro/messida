@@ -90,8 +90,13 @@
     <ClCompile Include="..\..\src\mame\mame.c" />
     <ClCompile Include="..\..\src\version.c" />
     <ClCompile Include="debug.cpp" />
+    <ClCompile Include="dialog_utils.cpp" />
     <ClCompile Include="nargv.c" />
     <ClCompile Include="plugin.cpp" />
+    <ClCompile Include="vdp_ram.cpp" />
+    <ClInclude Include="dialog_utils.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="vdp_ram.h" />
     <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\7z.vcxproj">
       <Project>{ad573d62-e76a-4b11-ae34-5110a6789a42}</Project>
     </ProjectReference>
@@ -159,6 +164,9 @@
       <Project>{3d78bd2a-2bd0-4449-8087-42ddfaef7ec9}</Project>
     </ProjectReference>
     <ClInclude Include="registers.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="messida.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
