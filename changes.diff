@@ -37,12 +37,12 @@ index f52e166..6a06848 100644
  	/* force an update of any console views */
  	machine.debug_view().update_all(DVT_CONSOLE);
 diff --git a/src/emu/debug/debugcpu.c b/src/emu/debug/debugcpu.c
-index 2eeb2e1..2cde8b2 100644
+index 4803052..651d1ad 100644
 --- a/src/emu/debug/debugcpu.c
 +++ b/src/emu/debug/debugcpu.c
 @@ -22,6 +22,15 @@
+ #include "coreutil.h"
  #include <ctype.h>
- #include <zlib.h>
  
 +#if defined (C_IDA_DEBUG)
 +#include "mess_debmod.h"

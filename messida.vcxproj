@@ -75,7 +75,7 @@
     <Link>
       <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">..\dxsdk\lib\x86;$(IDA_SDK)\lib\x86_win_vc_32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration Condition="'$(Configuration)'=='Release'">UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalDependencies>ida.lib;user32.lib;winmm.lib;advapi32.lib;shlwapi.lib;wsock32.lib;opengl32.lib;gdi32.lib;dsound.lib;dxguid.lib;dinput8.lib;comctl32.lib;comdlg32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ida.lib;user32.lib;winmm.lib;advapi32.lib;shlwapi.lib;wsock32.lib;opengl32.lib;gdi32.lib;dsound.lib;dxguid.lib;dinput8.lib;comctl32.lib;comdlg32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OptimizeReferences Condition="'$(Configuration)'=='Release'">true</OptimizeReferences>
       <EnableCOMDATFolding Condition="'$(Configuration)'=='Release'">true</EnableCOMDATFolding>
       <TargetMachine Condition="'$(Platform)'=='Win32'">MachineX86</TargetMachine>

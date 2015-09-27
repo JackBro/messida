@@ -140,7 +140,7 @@ static const char *register_classes[] =
 
 static void wait_for_machine()
 {
-	while (!g_running_machine)
+	while (!g_running_machine && !stopped)
 		qsleep(1);
 }
 
@@ -335,7 +335,6 @@ static void finish_execution()
     qthread_free(mess_thread);
 	qthread_kill(mess_thread);
 	g_running_machine = NULL;
-	stopped = true;
 	apply_codemap();
 }
 
@@ -388,13 +387,15 @@ static int idaapi mess_process(void *ud)
 	rc = utf8_main(params->argc, params->argv);
 	nargv_free(params);
 
-	debug_event_t ev;
-	ev.eid = PROCESS_EXIT;
-	ev.pid = 1;
-	ev.handled = true;
-	ev.exit_code = rc;
+    debug_event_t ev;
+    ev.eid = PROCESS_EXIT;
+    ev.pid = 1;
+    ev.handled = true;
+    ev.exit_code = rc;
 
-	g_events.enqueue(ev, IN_BACK);
+    g_events.enqueue(ev, IN_BACK);
+
+    stopped = true;
 
 	return rc;
 }
@@ -422,27 +423,27 @@ static int idaapi start_process(const char *path,
 	NARGV *params = nargv_parse(cmdline);
 	mess_thread = qthread_create(mess_process, params);
 
-	debug_event_t ev;
-	ev.eid = PROCESS_START;
-	ev.pid = 1;
-	ev.tid = 1;
-	ev.ea = BADADDR;
-	ev.handled = true;
+    debug_event_t ev;
+    ev.eid = PROCESS_START;
+    ev.pid = 1;
+    ev.tid = 1;
+    ev.ea = BADADDR;
+    ev.handled = true;
 
-	qstrncpy(ev.modinfo.name, path, sizeof(ev.modinfo.name));
-	ev.modinfo.base = 0;
-	ev.modinfo.size = 0;
-	ev.modinfo.rebase_to = BADADDR;
+    ev.modinfo.name[0] = '\0';
+    ev.modinfo.base = 0;
+    ev.modinfo.size = 0;
+    ev.modinfo.rebase_to = BADADDR;
 
-	g_events.enqueue(ev, IN_BACK);
+    g_events.enqueue(ev, IN_BACK);
 
-	ev.eid = PROCESS_SUSPEND;
-	ev.pid = 1;
-	ev.tid = 1;
-	ev.ea = BADADDR;
-	ev.handled = true;
+    ev.eid = PROCESS_SUSPEND;
+    ev.pid = 1;
+    ev.tid = 1;
+    ev.ea = BADADDR;
+    ev.handled = true;
 
-	g_events.enqueue(ev, IN_BACK);
+    g_events.enqueue(ev, IN_BACK);
 
 	return 1;
 }
@@ -502,7 +503,7 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 		// are there any pending events?
 		if (g_events.retrieve(event))
 		{
-			if (event->eid != PROCESS_EXIT)
+            if (event->eid != PROCESS_EXIT)
 				pause_execution();
 			return g_events.empty() ? GDE_ONE_EVENT : GDE_MANY_EVENTS;
 		}
@@ -958,18 +959,43 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 	int i;
 	int cnt = 0;
 
+    for (i = 0; i < ndel; i++)
+    {
+        bpts[nadd + i].code = BPT_OK;
+        cnt++;
+
+        int idx;
+        switch (bpts[nadd + i].type)
+        {
+        case BPT_EXEC:
+            if ((idx = get_bpt_index(bpts[nadd + i].ea)) >= 0)
+                get_debugger()->breakpoint_clear(idx);
+            break;
+
+        case BPT_READ:
+        case BPT_WRITE:
+        case BPT_RDWR:
+            if ((idx = get_wpt_index(bpts[nadd + i].ea)) >= 0)
+                get_debugger()->watchpoint_clear(idx);
+            break;
+        }
+    }
+
 	for (i = 0; i < nadd; ++i)
 	{
-		switch (bpts[i].type)
+        if (bpts[i].code != BPT_OK)
+            continue;
+
+        switch (bpts[i].type)
 		{
 		case BPT_EXEC:
-			get_debugger()->breakpoint_set(bpts[i].ea);
+            get_debugger()->breakpoint_set(bpts[i].ea);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
 
 		case BPT_READ:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, 1, NULL, NULL);
+            get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, 1, NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
@@ -984,28 +1010,6 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, bpts[i].ea, 1, NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
-			break;
-		}
-	}
-
-	for (i = 0; i < ndel; i++)
-	{
-		bpts[nadd + i].code = BPT_OK;
-		cnt++;
-
-		int idx;
-        switch (bpts[nadd + i].type)
-		{
-		case BPT_EXEC:
-            if ((idx = get_bpt_index(bpts[nadd + i].ea)) >= 0)
-				get_debugger()->breakpoint_clear(idx);
-			break;
-
-		case BPT_READ:
-		case BPT_WRITE:
-		case BPT_RDWR:
-            if ((idx = get_wpt_index(bpts[nadd + i].ea)) >= 0)
-				get_debugger()->watchpoint_clear(idx);
 			break;
 		}
 	}

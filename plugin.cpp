@@ -109,18 +109,20 @@ static bool idaapi execute_mess_cmd(void *ud)
 //---------------------------------------------------------------------------
 static void remove_mess_menu()
 {
-    del_menu_item("Debugger/" MESS_MENU_RUN_CMD);
+    if (dbg_started)
+        del_menu_item("Debugger/" MESS_MENU_RUN_CMD);
 }
 
 //---------------------------------------------------------------------------
 static void install_mess_menu()
 {
-    add_menu_item("Debugger/StepInto",
-        MESS_MENU_RUN_CMD,
-        NULL,
-        SETMENU_INS | SETMENU_CTXAPP,
-        execute_mess_cmd,
-        NULL);
+    if (dbg_started)
+        add_menu_item("Debugger/StepInto",
+            MESS_MENU_RUN_CMD,
+            NULL,
+            SETMENU_INS | SETMENU_CTXAPP,
+            execute_mess_cmd,
+            NULL);
 }
 
 static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
@@ -128,13 +130,13 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	switch (notification_code)
 	{
 	case dbg_notification_t::dbg_process_start:
+        dbg_started = true;
         install_mess_menu();
-		dbg_started = true;
 		break;
 
 	case dbg_notification_t::dbg_process_exit:
         remove_mess_menu();
-		dbg_started = false;
+        dbg_started = false;
 	}
 	return 0;
 }
