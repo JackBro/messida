@@ -360,8 +360,6 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         SelectObject(VDPRamMemDC, VDPRamLastBMP);
         DeleteObject(VDPRamMemBMP);
         DeleteObject(VDPRamMemDC);
-        DialogsOpen--;
-        VDPRamHWnd = NULL;
         EndDialog(hDlg, true);
         return true;
     }

@@ -334,6 +334,8 @@ static void finish_execution()
 {
     if (stopped) return;
     stopped = true;
+    DestroyWindow(VDPRamHWnd);
+    VDPRamHWnd = NULL;
 	qthread_join(mess_thread);
     qthread_free(mess_thread);
 	qthread_kill(mess_thread);

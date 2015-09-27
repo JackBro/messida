@@ -12,7 +12,7 @@
 // A copy of the GPL 2.0 should have been included with the program.
 // If not, see http ://www.gnu.org/licenses/
 
-#define VERSION "1.4.2"
+#define VERSION "1.4.3"
 
 #include <Windows.h>
 
@@ -42,7 +42,6 @@ static bool dbg_started;
 HWND VDPRamHWnd = NULL;
 //HINSTANCE g_hinstance = NULL;
 //HWND HWnd = NULL;
-int DialogsOpen = 0;
 
 LRESULT CALLBACK VDPRamProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -115,11 +114,7 @@ static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
 static bool idaapi create_vdp_ram_window(void *ud)
 {
     if (!VDPRamHWnd)
-    {
-        //HWnd = (HWND)callui(ui_get_hwnd).vptr;
         VDPRamHWnd = CreateDialog(GetHInstance(), MAKEINTRESOURCE(IDD_VDPRAM), NULL, (DLGPROC)VDPRamProc);
-        DialogsOpen++;
-    }
     else
         SetForegroundWindow(VDPRamHWnd);
 
@@ -138,7 +133,7 @@ static bool idaapi execute_mess_cmd(void *ud)
 }
 
 #define MESS_MENU_RUN_CMD "Execute MESS command..."
-#define SHELL_MOD_VRAM "VRAM View..."
+#define SHELL_MOD_VRAM "VDP RAM"
 
 //---------------------------------------------------------------------------
 static void remove_mess_menu()
@@ -162,11 +157,7 @@ static void install_mess_menu()
 static void remove_shell_vram_menu()
 {
     if (dbg_started)
-    {
-        DestroyWindow(VDPRamHWnd);
-        VDPRamHWnd = NULL;
         del_menu_item("Debugger/" SHELL_MOD_VRAM);
-    }
 }
 
 //---------------------------------------------------------------------------
