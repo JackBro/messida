@@ -12,7 +12,7 @@
 // A copy of the GPL 2.0 should have been included with the program.
 // If not, see http ://www.gnu.org/licenses/
 
-#define VERSION "1.4.3"
+#define VERSION "1.5"
 
 #include <Windows.h>
 
@@ -121,38 +121,7 @@ static bool idaapi create_vdp_ram_window(void *ud)
     return true;
 }
 
-static bool idaapi execute_mess_cmd(void *ud)
-{
-    const char *exec = askstr(HIST_CMD, "", "Enter debugger command here:\n");
-
-    if (!exec) return false;
-
-    CMDERR _error = debug_console_execute_command(*g_running_machine, exec, TRUE);
-
-    return (_error == CMDERR_NONE);
-}
-
-#define MESS_MENU_RUN_CMD "Execute MESS command..."
 #define SHELL_MOD_VRAM "VDP RAM"
-
-//---------------------------------------------------------------------------
-static void remove_mess_menu()
-{
-    if (dbg_started)
-        del_menu_item("Debugger/" MESS_MENU_RUN_CMD);
-}
-
-//---------------------------------------------------------------------------
-static void install_mess_menu()
-{
-    if (dbg_started)
-        add_menu_item("Debugger/StepInto",
-            MESS_MENU_RUN_CMD,
-            NULL,
-            SETMENU_INS | SETMENU_CTXAPP,
-            execute_mess_cmd,
-            NULL);
-}
 
 static void remove_shell_vram_menu()
 {
@@ -178,12 +147,10 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	{
 	case dbg_notification_t::dbg_process_start:
         dbg_started = true;
-        install_mess_menu();
         install_shell_vram_menu();
 		break;
 
 	case dbg_notification_t::dbg_process_exit:
-        remove_mess_menu();
         remove_shell_vram_menu();
         dbg_started = false;
 	}

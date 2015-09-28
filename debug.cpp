@@ -236,50 +236,6 @@ static void set_68k_reg_value(register_t idx, const regval_t *value)
 	get_symbol_table()->set_value(register_str_t[idx], value->ival);
 }
 
-static ea_t get_current_pc()
-{
-    return get_68k_reg_value(R_PC);
-}
-
-static void create_console()
-{
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-
-    // Create a new console window.
-    if (!AllocConsole()) return;
-
-    SetConsoleTitle("MESS Console");
-
-    // Set the screen buffer to be larger than normal (this is optional).
-    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
-    {
-        csbi.dwSize.Y = 1; // any useful number of lines...
-        SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), csbi.dwSize);
-    }
-
-    // Redirect "stdin" to the console window.
-    if (!freopen("conin$", "r+t", stdin)) return;
-
-    // Redirect "stderr" to the console window.
-    if (!freopen("conout$", "w+t", stderr)) return;
-
-    // Redirect "stdout" to the console window.
-    if (!freopen("conout$", "w+t", stdout)) return;
-
-    // Turn off buffering for "stdout" ("stderr" is unbuffered by default).
-
-    setbuf(stdout, NULL);
-}
-
-static void close_console()
-{
-    fclose(stdin);
-    fclose(stderr);
-    fclose(stdout);
-
-	FreeConsole();
-}
-
 static void prepare_codemap()
 {
 	g_codemap.resize(MAX_ROM_SIZE);
@@ -322,7 +278,6 @@ static void apply_codemap()
 static void pause_execution()
 {
 	get_debugger()->halt_on_next_instruction("");
-	qsleep(10);
 }
 
 static void continue_execution()
@@ -350,7 +305,6 @@ static bool idaapi init_debugger(const char *hostname,
 	int port_num,
 	const char *password)
 {
-	create_console();
 	set_process_options(NULL, "genesis", NULL, NULL, NULL, 0);
 	return true;
 }
@@ -361,7 +315,6 @@ static bool idaapi init_debugger(const char *hostname,
 static bool idaapi term_debugger(void)
 {
     finish_execution();
-	close_console();
 	return true;
 }
 
@@ -427,28 +380,6 @@ static int idaapi start_process(const char *path,
 	NARGV *params = nargv_parse(cmdline);
 	mess_thread = qthread_create(mess_process, params);
 
-    debug_event_t ev;
-    ev.eid = PROCESS_START;
-    ev.pid = 1;
-    ev.tid = 1;
-    ev.ea = BADADDR;
-    ev.handled = true;
-
-    ev.modinfo.name[0] = '\0';
-    ev.modinfo.base = 0;
-    ev.modinfo.size = 0;
-    ev.modinfo.rebase_to = BADADDR;
-
-    g_events.enqueue(ev, IN_BACK);
-
-    ev.eid = PROCESS_SUSPEND;
-    ev.pid = 1;
-    ev.tid = 1;
-    ev.ea = BADADDR;
-    ev.handled = true;
-
-    g_events.enqueue(ev, IN_BACK);
-
 	return 1;
 }
 
@@ -469,15 +400,8 @@ static void idaapi rebase_if_required_to(ea_t new_base)
 // This function is called from debthread
 static int idaapi prepare_to_pause_process(void)
 {
-	debug_event_t ev;
-	ev.eid = PROCESS_SUSPEND;
-	ev.pid = 1;
-	ev.tid = 1;
-	ev.ea = get_current_pc();
-	ev.handled = true;
-
-	g_events.enqueue(ev, IN_BACK);
-
+	CHECK_FOR_START(1);
+	pause_execution();
 	return 1;
 }
 
@@ -491,9 +415,7 @@ static int idaapi prepare_to_pause_process(void)
 static int idaapi mess_exit_process(void)
 {
 	CHECK_FOR_START(1);
-	continue_execution();
 	get_running_machine()->schedule_exit();
-
 	return 1;
 }
 
@@ -509,8 +431,7 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
         // are there any pending events?
 		if (g_events.retrieve(event))
 		{
-            if (event->eid != PROCESS_EXIT)
-				pause_execution();
+			//pause_execution();
 			return g_events.empty() ? GDE_ONE_EVENT : GDE_MANY_EVENTS;
 		}
 		if (g_events.empty())
