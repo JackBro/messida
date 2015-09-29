@@ -289,8 +289,7 @@ static void finish_execution()
 {
     if (stopped) return;
     stopped = true;
-    DestroyWindow(VDPRamHWnd);
-    VDPRamHWnd = NULL;
+	SendMessage(VDPRamHWnd, WM_CLOSE, 0, 0);
 	qthread_join(mess_thread);
     qthread_free(mess_thread);
 	qthread_kill(mess_thread);
@@ -430,10 +429,7 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
             Update_VDP_RAM();
         // are there any pending events?
 		if (g_events.retrieve(event))
-		{
-			//pause_execution();
 			return g_events.empty() ? GDE_ONE_EVENT : GDE_MANY_EVENTS;
-		}
 		if (g_events.empty())
 			break;
 	}

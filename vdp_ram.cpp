@@ -10,12 +10,11 @@
 
 //extern HWND HWnd;
 extern HWND VDPRamHWnd;
-extern int DialogsOpen;
 
 segment_t *vram = NULL, *cram = NULL;
 UINT8 *VRam = NULL, *CRam = NULL;
 
-HDC VDPRamMemDC;
+HDC VDPRamMemDC, hDC;
 HBITMAP VDPRamMemBMP;
 HBITMAP VDPRamLastBMP;
 BITMAPINFO MemBMPi;
@@ -104,7 +103,6 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     RECT r;
     RECT r2;
     int dx1, dy1, dx2, dy2;
-    static int watchIndex = 0;
 
     switch (uMsg)
     {
@@ -114,8 +112,8 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         
         asize_t vram_size = get_vram_size();
         
-        HDC hdc = GetDC(hDlg);
-        VDPRamMemDC = CreateCompatibleDC(hdc);
+		hDC = GetDC(hDlg);
+		VDPRamMemDC = CreateCompatibleDC(hDC);
         MemBMPi.bmiHeader.biSize = sizeof(MemBMPi.bmiHeader);
         MemBMPi.bmiHeader.biWidth = 8 * 16;
         MemBMPi.bmiHeader.biHeight = (vram_size / 32 / 16) * 8 + 8;
@@ -281,6 +279,7 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }	break;
         }
         SetScrollPos(GetDlgItem(hDlg, IDC_SCROLLBAR1), SB_CTL, CurPos, TRUE);
+		Update_VDP_RAM();
     }	break;
     case WM_PAINT:
     {
@@ -328,6 +327,7 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             y <= 16 * 4)
         {
             VDPRamPal = y & 0x30;
+			Update_VDP_RAM();
         }
     }	break;
 
@@ -360,7 +360,10 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         SelectObject(VDPRamMemDC, VDPRamLastBMP);
         DeleteObject(VDPRamMemBMP);
         DeleteObject(VDPRamMemDC);
-        EndDialog(hDlg, true);
+		DeleteObject(VDPRamLastBMP);
+		ReleaseDC(hDlg, hDC);
+		DestroyWindow(VDPRamHWnd);
+		VDPRamHWnd = NULL;
         return true;
     }
 

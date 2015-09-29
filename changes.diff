@@ -1,14 +1,15 @@
 diff --git a/src/emu/debug/debugcpu.c b/src/emu/debug/debugcpu.c
-index 4803052..af4bcaa 100644
+index 4803052..eaccc8d 100644
 --- a/src/emu/debug/debugcpu.c
 +++ b/src/emu/debug/debugcpu.c
-@@ -22,6 +22,15 @@
+@@ -22,6 +22,16 @@
  #include "coreutil.h"
  #include <ctype.h>
  
 +#if defined (C_IDA_DEBUG)
 +#include "mess_debmod.h"
 +
++bool handled_ida_event;
 +extern running_machine *g_running_machine;
 +extern codemap_t g_codemap;
 +extern eventlist_t g_events;
@@ -18,7 +19,7 @@ index 4803052..af4bcaa 100644
  
  /***************************************************************************
      CONSTANTS
-@@ -1702,6 +1711,9 @@ device_debug::~device_debug()
+@@ -1702,6 +1712,9 @@ device_debug::~device_debug()
  
  void device_debug::start_hook(const attotime &endtime)
  {
@@ -28,7 +29,7 @@ index 4803052..af4bcaa 100644
  	debugcpu_private *global = m_device.machine().debugcpu_data;
  
  	assert((m_device.machine().debug_flags & DEBUG_FLAG_ENABLED) != 0);
-@@ -1752,8 +1764,10 @@ void device_debug::start_hook(const attotime &endtime)
+@@ -1752,8 +1765,10 @@ void device_debug::start_hook(const attotime &endtime)
  			}
  		}
  		// check for debug keypresses
@@ -39,7 +40,7 @@ index 4803052..af4bcaa 100644
  	}
  
  	// recompute the debugging mode
-@@ -1822,6 +1836,11 @@ void device_debug::exception_hook(int exception)
+@@ -1822,6 +1837,13 @@ void device_debug::exception_hook(int exception)
  
  void device_debug::instruction_hook(offs_t curpc)
  {
@@ -47,48 +48,90 @@ index 4803052..af4bcaa 100644
 +	offs_t _pc = m_device.machine().firstcpu->pc();
 +	if (_pc >= 0 && _pc < MAX_ROM_SIZE)
 +		g_codemap[_pc] = std::pair<ea_t, bool>(m_pc_history[(m_pc_history_index-1) % HISTORY_SIZE], true);
++
++	handled_ida_event = false;
 +#endif
  	running_machine &machine = m_device.machine();
  	debugcpu_private *global = machine.debugcpu_data;
  
-@@ -1899,6 +1918,36 @@ void device_debug::instruction_hook(offs_t curpc)
+@@ -1862,7 +1884,20 @@ void device_debug::instruction_hook(offs_t curpc)
+ 
+ 			// if we hit 0, stop
+ 			if (m_stepsleft == 0)
++			{
+ 				global->execution_state = EXECUTION_STATE_STOPPED;
++#if defined (C_IDA_DEBUG)
++				debug_event_t ev;
++				ev.eid = STEP;
++				ev.pid = 1;
++				ev.tid = 1;
++				ev.ea = curpc;
++				ev.handled = true;
++
++				g_events.enqueue(ev, IN_BACK);
++				handled_ida_event = true;
++#endif
++			}
+ 
+ 			// update every 100 steps until we are within 200 of the end
+ 			else if ((m_flags & DEBUG_FLAG_STEPPING_OUT) == 0 && (m_stepsleft < 200 || m_stepsleft % 100 == 0))
+@@ -1882,6 +1917,17 @@ void device_debug::instruction_hook(offs_t curpc)
+ 		{
+ 			debug_console_printf(machine, "Stopped at time interval %.1g\n", machine.time().as_double());
+ 			global->execution_state = EXECUTION_STATE_STOPPED;
++#if defined (C_IDA_DEBUG)
++			debug_event_t ev;
++			ev.eid = PROCESS_SUSPEND;
++			ev.pid = 1;
++			ev.tid = 1;
++			ev.ea = curpc;
++			ev.handled = true;
++
++			g_events.enqueue(ev, IN_BACK);
++			handled_ida_event = true;
++#endif
+ 		}
+ 
+ 		// check the temp running breakpoint and break if we hit it
+@@ -1889,6 +1935,17 @@ void device_debug::instruction_hook(offs_t curpc)
+ 		{
+ 			debug_console_printf(machine, "Stopped at temporary breakpoint %X on CPU '%s'\n", m_stopaddr, m_device.tag());
+ 			global->execution_state = EXECUTION_STATE_STOPPED;
++#if defined (C_IDA_DEBUG)
++			debug_event_t ev;
++			ev.eid = PROCESS_SUSPEND;
++			ev.pid = 1;
++			ev.tid = 1;
++			ev.ea = curpc;
++			ev.handled = true;
++
++			g_events.enqueue(ev, IN_BACK);
++			handled_ida_event = true;
++#endif
+ 		}
+ 
+ 		// check for execution breakpoints
+@@ -1899,6 +1956,19 @@ void device_debug::instruction_hook(offs_t curpc)
  	// if we are supposed to halt, do it now
  	if (global->execution_state == EXECUTION_STATE_STOPPED)
  	{
 +#if defined (C_IDA_DEBUG)
-+		debug_event_t ev;
-+		ev.pid = 1;
-+		ev.tid = 1;
-+		ev.ea = curpc;
-+		ev.handled = true;
-+
-+		bool send;
-+		if (m_flags & DEBUG_FLAG_STEPPING_ANY)
++		if (!handled_ida_event)
 +		{
-+			ev.eid = STEP;
-+			send = true;
-+		}
-+		else if ((m_flags & DEBUG_FLAG_STOP_PC) && (m_flags & DEBUG_FLAG_LIVE_BP))
-+		{
-+			send = false;
-+		}
-+		else if (m_flags & DEBUG_FLAG_STOP_INTERRUPT)
-+		{
-+			send = false;
-+		}
-+		else
-+		{
++			debug_event_t ev;
++			ev.pid = 1;
++			ev.tid = 1;
++			ev.ea = curpc;
++			ev.handled = true;
 +			ev.eid = PROCESS_SUSPEND;
-+			send = true;
-+		}
 +
-+		if (send)
 +			g_events.enqueue(ev, IN_BACK);
++		}
 +#endif
  		bool firststop = true;
  
  		// load comments if we haven't yet
-@@ -2910,7 +2959,22 @@ void device_debug::breakpoint_check(offs_t pc)
+@@ -2910,7 +2980,23 @@ void device_debug::breakpoint_check(offs_t pc)
  
  			// print a notification, unless the action made us go again
  			if (global->execution_state == EXECUTION_STATE_STOPPED)
@@ -106,12 +149,13 @@ index 4803052..af4bcaa 100644
 +				ev.bpt.kea = BADADDR;
 +
 +				g_events.enqueue(ev, IN_BACK);
++				handled_ida_event = true;
 +#endif
 +			}
  			break;
  		}
  
-@@ -2933,6 +2997,19 @@ void device_debug::breakpoint_check(offs_t pc)
+@@ -2933,6 +3019,20 @@ void device_debug::breakpoint_check(offs_t pc)
  			if (global->execution_state == EXECUTION_STATE_STOPPED)
  			{
  				debug_console_printf(m_device.machine(), "Stopped at registerpoint %X\n", rp->m_index);
@@ -127,11 +171,12 @@ index 4803052..af4bcaa 100644
 +				ev.bpt.kea = BADADDR;
 +
 +				g_events.enqueue(ev, IN_BACK);
++				handled_ida_event = true;
 +#endif
  			}
  			break;
  		}
-@@ -3059,6 +3136,20 @@ void device_debug::watchpoint_check(address_space &space, int type, offs_t addre
+@@ -3059,6 +3159,21 @@ void device_debug::watchpoint_check(address_space &space, int type, offs_t addre
  					strprintf(buffer,"Stopped at watchpoint %X reading %s from %08X (PC=%X)", wp->m_index, sizes[size], space.byte_to_address(address), pc);
  				debug_console_printf(space.machine(), "%s\n", buffer.c_str());
  				space.device().debug()->compute_debug_flags();
@@ -148,6 +193,7 @@ index 4803052..af4bcaa 100644
 +				ev.bpt.kea = address;
 +
 +				g_events.enqueue(ev, IN_BACK);
++				handled_ida_event = true;
 +#endif
  			}
  			break;
