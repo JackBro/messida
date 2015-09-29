@@ -26,8 +26,8 @@ codemap_t g_codemap;
 running_machine *g_running_machine = NULL;
 eventlist_t g_events;
 
-static bool stopped;
-static qthread_t mess_thread;
+bool stopped = true;
+qthread_t mess_thread = NULL;
 
 #define CHECK_FOR_START(x) {if (stopped) return x;}
 
@@ -290,9 +290,14 @@ static void finish_execution()
     if (stopped) return;
     stopped = true;
 	SendMessage(VDPRamHWnd, WM_CLOSE, 0, 0);
-	qthread_join(mess_thread);
-    qthread_free(mess_thread);
-	qthread_kill(mess_thread);
+
+	if (mess_thread != NULL)
+	{
+		qthread_join(mess_thread);
+		qthread_free(mess_thread);
+		qthread_kill(mess_thread);
+	}
+
 	g_running_machine = NULL;
 	apply_codemap();
 }

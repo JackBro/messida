@@ -12,7 +12,7 @@
 // A copy of the GPL 2.0 should have been included with the program.
 // If not, see http ://www.gnu.org/licenses/
 
-#define VERSION "1.5.1"
+#define VERSION "1.5.2"
 
 #include <Windows.h>
 
@@ -40,8 +40,6 @@ static bool plugin_inited;
 static bool dbg_started;
 
 HWND VDPRamHWnd = NULL;
-//HINSTANCE g_hinstance = NULL;
-//HWND HWnd = NULL;
 
 LRESULT CALLBACK VDPRamProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -52,29 +50,6 @@ static HINSTANCE GetHInstance()
     VirtualQuery(GetHInstance, &mbi, sizeof(mbi));
 
     return (HINSTANCE)mbi.AllocationBase;
-}
-
-static char *get_type(int type)
-{
-	switch (type)
-	{
-	case 0: return "o_void";
-	case 1: return "o_reg";
-	case 2: return "o_mem";
-	case 3: return "o_phrase";
-	case 4: return "o_displ";
-	case 5: return "o_imm";
-	case 6: return "o_far";
-	case 7: return "o_near";
-	case 8: return "o_idpspec0";
-	case 9: return "o_idpspec1";
-	case 10: return "o_idpspec2";
-	case 11: return "o_idpspec3";
-	case 12: return "o_idpspec4";
-	case 13: return "o_idpspec5";
-	default:
-		return "bad o_type";
-	}
 }
 
 static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
@@ -218,12 +193,6 @@ static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 
 				if (op.type != o_void)
 				{
-					//qsnprintf(buf, MAXSTR, "type: %s\n", get_type(op.type));
-					//OutputDebugStringA(buf);
-
-					qsnprintf(buf, MAXSTR, "cmd: %d, type: %s, phrase: %d, addr: %a, value: %a, sp1: %x, sp2: %x\n", _cmd.itype, get_type(op.type), op.reg, op.addr, op.value, op.specflag1, op.specflag2);
-					OutputDebugStringA(buf);
-
 					switch (op.type)
 					{
 					case o_mem:
@@ -288,9 +257,6 @@ static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 
 						if (main_reg_idx != R_PC)
 							get_reg_val(dbg->registers[main_reg_idx].name, &main_reg);
-
-						qsnprintf(buf, MAXSTR, "reg: %d, sp1: %x, sp2: %x\n", op.reg, op.specflag1, op.specflag2);
-						OutputDebugStringA(buf);
 
 						idaplace_t here;
 						ea_t addr = (uint32)main_reg.ival + op.addr + (uint32)add_reg.ival; // TODO: displacements with PC and other regs unk_123(pc, d0.l); unk_111(d0, d2.w)
