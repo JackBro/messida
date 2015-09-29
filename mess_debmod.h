@@ -20,7 +20,7 @@
 #include <idd.hpp>
 
 #define MAX_ROM_SIZE 0x800000
-typedef qvector<std::pair<ea_t, bool>> codemap_t;
+typedef qvector<std::pair<uint32, bool>> codemap_t;
 
 //--------------------------------------------------------------------------
 // Very simple class to store pending events

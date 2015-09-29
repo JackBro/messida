@@ -241,7 +241,7 @@ static void prepare_codemap()
 	g_codemap.resize(MAX_ROM_SIZE);
 	for (size_t i = 0; i < MAX_ROM_SIZE; ++i)
 	{
-		g_codemap[i] = std::pair<ea_t, bool>(BADADDR, false);
+		g_codemap[i] = std::pair<uint32, bool>(BADADDR, false);
 	}
 }
 
@@ -250,7 +250,7 @@ static void apply_codemap()
 	msg("Applying codemap...\n");
 	for (size_t i = 0; i < MAX_ROM_SIZE; ++i)
 	{
-		std::pair<ea_t, bool> _pair = g_codemap[i];
+		std::pair<uint32, bool> _pair = g_codemap[i];
 		if (_pair.second && _pair.first)
 		{
 			auto_make_code((ea_t)i);
@@ -262,7 +262,7 @@ static void apply_codemap()
 
 	for (size_t i = 0; i < MAX_ROM_SIZE; ++i)
 	{
-		std::pair<ea_t, bool> _pair = g_codemap[i];
+		std::pair<uint32, bool> _pair = g_codemap[i];
 		if (_pair.second && _pair.first && !get_func((ea_t)i))
 		{
 			add_func(i, BADADDR);
