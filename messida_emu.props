@@ -8,6 +8,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(IDA_SDK)\include;..\..\..\..\..\3rdparty\messida;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__NT__;__IDP__;NO_OBSOLETE_FUNCS;WIN32_LEAN_AND_MEAN;C_IDA_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/wd4121 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
