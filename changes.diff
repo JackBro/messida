@@ -1,5 +1,56 @@
+diff --git a/src/emu/debug/debugcon.c b/src/emu/debug/debugcon.c
+index f52e166..cfbac2c 100644
+--- a/src/emu/debug/debugcon.c
++++ b/src/emu/debug/debugcon.c
+@@ -17,6 +17,13 @@
+ #include "debugger.h"
+ #include <ctype.h>
+
++#if defined (C_IDA_DEBUG)
++#include <ida.hpp>
++#include <kernwin.hpp>
++
++#define strcpy(destptr, srcptr) qstrncpy(destptr, srcptr, MAX_COMMAND_LENGTH)
++#endif
++
+
+
+ /***************************************************************************
+@@ -485,6 +492,10 @@ void CLIB_DECL debug_console_printf(running_machine &machine, const char *format
+
+ 	/* force an update of any console views */
+ 	machine.debug_view().update_all(DVT_CONSOLE);
++
++#if defined (C_IDA_DEBUG)
++	msg("%s", buffer.c_str());
++#endif
+ }
+
+
+@@ -503,6 +514,10 @@ void CLIB_DECL debug_console_vprintf(running_machine &machine, const char *forma
+
+ 	/* force an update of any console views */
+ 	machine.debug_view().update_all(DVT_CONSOLE);
++
++#if defined (C_IDA_DEBUG)
++	msg("%s", buffer.c_str());
++#endif
+ }
+
+
+@@ -525,6 +540,10 @@ void CLIB_DECL debug_console_printf_wrap(running_machine &machine, int wrapcol,
+
+ 	/* force an update of any console views */
+ 	machine.debug_view().update_all(DVT_CONSOLE);
++
++#if defined (C_IDA_DEBUG)
++	msg("%s", buffer.c_str());
++#endif
+ }
+
+
 diff --git a/src/emu/debug/debugcpu.c b/src/emu/debug/debugcpu.c
-index 4803052..02161ed 100644
+index 4803052..1a4bcf6 100644
 --- a/src/emu/debug/debugcpu.c
 +++ b/src/emu/debug/debugcpu.c
 @@ -22,6 +22,16 @@
