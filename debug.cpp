@@ -17,6 +17,7 @@
 
 #include "registers.h"
 #include "vdp_ram.h"
+#include "debug.h"
 
 extern int utf8_main(int argc, char *argv[]);
 
@@ -106,36 +107,36 @@ register_info_t registers[] =
 
 	{ "SR", NULL, RC_GENERAL, dt_word, SRReg, 0xFFFF },
 
-    { "MODE1", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "MODE2", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "PLANE_A_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
-    { "WINDOW_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
-    { "PLANE_B_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
-    { "SPRITE_TBL_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
-    { "SPRITES_REBASE", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "BACK_COLOR", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "HBLANK_COUNTER", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "MODE3", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "MODE4", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "HSCROLL_TBL_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
-    { "PLANES_REBASE", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "AUTO_INC_VALUE", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "PLANES_SIZE", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "WINDOW_HPOS", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "WINDOW_VPOS", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "DMA_LEN", NULL, RC_VDP, dt_word, NULL, 0 },
-    //{ "DMA_LEN_HIGH", NULL, RC_VDP, dt_byte, NULL, 0 },
-    { "DMA_SRC", NULL, RC_VDP, dt_3byte, NULL, 0 },
-    //{ "DMA_SRC_MID", NULL, RC_VDP, dt_byte, NULL, 0 },
-    //{ "DMA_SRC_HIGH", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "MODE1", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "MODE2", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "PLANE_A_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
+	{ "WINDOW_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
+	{ "PLANE_B_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
+	{ "SPRITE_TBL_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
+	{ "SPRITES_REBASE", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "BACK_COLOR", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "HBLANK_COUNTER", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "MODE3", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "MODE4", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "HSCROLL_TBL_ADDR", NULL, RC_VDP, dt_word, NULL, 0 },
+	{ "PLANES_REBASE", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "AUTO_INC_VALUE", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "PLANES_SIZE", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "WINDOW_HPOS", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "WINDOW_VPOS", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "DMA_LEN", NULL, RC_VDP, dt_word, NULL, 0 },
+	//{ "DMA_LEN_HIGH", NULL, RC_VDP, dt_byte, NULL, 0 },
+	{ "DMA_SRC", NULL, RC_VDP, dt_3byte, NULL, 0 },
+	//{ "DMA_SRC_MID", NULL, RC_VDP, dt_byte, NULL, 0 },
+	//{ "DMA_SRC_HIGH", NULL, RC_VDP, dt_byte, NULL, 0 },
 
-    { "WRITE_POSITION", REGISTER_READONLY, RC_VDP, dt_word, NULL, 0 }
+	{ "WRITE_POSITION", REGISTER_READONLY, RC_VDP, dt_word, NULL, 0 }
 };
 
 static const char *register_classes[] =
 {
 	"General Registers",
-    "VDP Registers",
+	"VDP Registers",
 	NULL
 };
 
@@ -167,63 +168,63 @@ static symbol_table *get_symbol_table()
 	return &get_debugger()->symtable();
 }
 
-static void *find_region(const char *region, char delim, size_t *size)
+void *find_region(const char *region, char delim, size_t *size)
 {
-    for (int itemnum = 0; itemnum < 10000; itemnum++)
-    {
-        // stop when we run out of items
-        UINT32 valsize, valcount;
-        void *base;
-        const char *itemname = get_running_machine()->save().indexed_item(itemnum, base, valsize, valcount);
-        if (itemname == NULL)
-            break;
+	for (int itemnum = 0; itemnum < 10000; itemnum++)
+	{
+		// stop when we run out of items
+		UINT32 valsize, valcount;
+		void *base;
+		const char *itemname = get_running_machine()->save().indexed_item(itemnum, base, valsize, valcount);
+		if (itemname == NULL)
+			break;
 
-        // add pretty much anything that's not a timer (we may wish to cull other items later)
-        // also, don't trim the front of the name, it's important to know which VIA6522 we're looking at, e.g.
-        std::string name;
-        name.assign(itemname);
-        size_t pos = name.find_last_of(delim);
-        if (name.substr(pos + 1) == region)
-        {
-            *size = (size_t)(valsize * valcount);
-            return base;
-        }
-    }
+		// add pretty much anything that's not a timer (we may wish to cull other items later)
+		// also, don't trim the front of the name, it's important to know which VIA6522 we're looking at, e.g.
+		std::string name;
+		name.assign(itemname);
+		size_t pos = name.find_last_of(delim);
+		if (name.substr(pos + 1) == region)
+		{
+			*size = (size_t)(valsize * valcount);
+			return base;
+		}
+	}
 
-    return NULL;
+	return NULL;
 }
 
 static UINT16 get_vdp_write_pos()
 {
-    size_t real_size = 0;
-    UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_vdp_address", ':', &real_size);
+	size_t real_size = 0;
+	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_vdp_address", ':', &real_size);
 
-    if (!(ptr || real_size))
-        return 0;
+	if (!(ptr || real_size))
+		return 0;
 
-    return ptr[0];
+	return ptr[0];
 }
 
 static UINT16 get_vdp_reg_value(register_t idx)
 {
-    size_t real_size = 0;
-    UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
+	size_t real_size = 0;
+	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
 
-    if (!(ptr || real_size))
-        return 0;
+	if (!(ptr || real_size))
+		return 0;
 
-    return ptr[idx - R_DR00];
+	return ptr[idx - R_DR00];
 }
 
 static void set_vdp_reg_value(register_t idx, const regval_t *value)
 {
-    size_t real_size = 0;
-    UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
+	size_t real_size = 0;
+	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
 
-    if (!(ptr || real_size))
-        return;
+	if (!(ptr || real_size))
+		return;
 
-    ptr[idx - R_DR00] = (UINT16)value->ival;
+	ptr[idx - R_DR00] = (UINT16)value->ival;
 }
 
 static ea_t get_68k_reg_value(register_t idx)
@@ -287,8 +288,8 @@ static void continue_execution()
 
 static void finish_execution()
 {
-    if (stopped) return;
-    stopped = true;
+	if (stopped) return;
+	stopped = true;
 	SendMessage(VDPRamHWnd, WM_CLOSE, 0, 0);
 
 	if (mess_thread != NULL)
@@ -318,7 +319,7 @@ static bool idaapi init_debugger(const char *hostname,
 // This function is called from the main thread
 static bool idaapi term_debugger(void)
 {
-    finish_execution();
+	finish_execution();
 	return true;
 }
 
@@ -333,30 +334,30 @@ static int idaapi process_get_info(int n, process_info_t *info)
 
 static void GetPluginName(char *szModule)
 {
-    MEMORY_BASIC_INFORMATION mbi;
-    SetLastError(ERROR_SUCCESS);
-    VirtualQuery(GetPluginName, &mbi, sizeof(mbi));
+	MEMORY_BASIC_INFORMATION mbi;
+	SetLastError(ERROR_SUCCESS);
+	VirtualQuery(GetPluginName, &mbi, sizeof(mbi));
 
-    GetModuleFileNameA((HINSTANCE)mbi.AllocationBase, (LPSTR)szModule, 2048);
+	GetModuleFileNameA((HINSTANCE)mbi.AllocationBase, (LPSTR)szModule, 2048);
 }
 
 static int idaapi mess_process(void *ud)
 {
-    SetCurrentDirectoryA(idadir("plugins"));
-    
-    int rc;
+	SetCurrentDirectoryA(idadir("plugins"));
+	
+	int rc;
 
 	NARGV *params = (NARGV *)ud;
 	rc = utf8_main(params->argc, params->argv);
 	nargv_free(params);
 
-    debug_event_t ev;
-    ev.eid = PROCESS_EXIT;
-    ev.pid = 1;
-    ev.handled = true;
-    ev.exit_code = rc;
+	debug_event_t ev;
+	ev.eid = PROCESS_EXIT;
+	ev.pid = 1;
+	ev.handled = true;
+	ev.exit_code = rc;
 
-    g_events.enqueue(ev, IN_BACK);
+	g_events.enqueue(ev, IN_BACK);
 
 	return rc;
 }
@@ -430,9 +431,9 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 {
 	while (true)
 	{
-        if (!stopped)
-            Update_VDP_RAM();
-        // are there any pending events?
+		if (!stopped)
+			Update_VDP_RAM();
+		// are there any pending events?
 		if (g_events.retrieve(event))
 			return g_events.empty() ? GDE_ONE_EVENT : GDE_MANY_EVENTS;
 		if (g_events.empty())
@@ -530,151 +531,151 @@ static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thre
 
 static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt = 1)
 {
-    return (((1 << bits_cnt) - 1) << bit_idx);
+	return (((1 << bits_cnt) - 1) << bit_idx);
 }
 
 // Read thread registers
-//    tid    - thread id
-//    clsmask- bitmask of register classes to read
-//    regval - pointer to vector of regvals for all registers
-//             regval is assumed to have debugger_t::registers_size elements
+//	tid	- thread id
+//	clsmask- bitmask of register classes to read
+//	regval - pointer to vector of regvals for all registers
+//			 regval is assumed to have debugger_t::registers_size elements
 // 1-ok, 0-failed, -1-network error
 // This function is called from debthread
 static int idaapi read_registers(thid_t tid, int clsmask, regval_t *values)
 {
 	if (clsmask & RC_GENERAL)
 	{
-        values[R_D0].ival = get_68k_reg_value(R_D0);
-        values[R_D1].ival = get_68k_reg_value(R_D1);
-        values[R_D2].ival = get_68k_reg_value(R_D2);
-        values[R_D3].ival = get_68k_reg_value(R_D3);
-        values[R_D4].ival = get_68k_reg_value(R_D4);
-        values[R_D5].ival = get_68k_reg_value(R_D5);
-        values[R_D6].ival = get_68k_reg_value(R_D6);
-        values[R_D7].ival = get_68k_reg_value(R_D7);
+		values[R_D0].ival = get_68k_reg_value(R_D0);
+		values[R_D1].ival = get_68k_reg_value(R_D1);
+		values[R_D2].ival = get_68k_reg_value(R_D2);
+		values[R_D3].ival = get_68k_reg_value(R_D3);
+		values[R_D4].ival = get_68k_reg_value(R_D4);
+		values[R_D5].ival = get_68k_reg_value(R_D5);
+		values[R_D6].ival = get_68k_reg_value(R_D6);
+		values[R_D7].ival = get_68k_reg_value(R_D7);
 
-        values[R_A0].ival = get_68k_reg_value(R_A0);
-        values[R_A1].ival = get_68k_reg_value(R_A1);
-        values[R_A2].ival = get_68k_reg_value(R_A2);
-        values[R_A3].ival = get_68k_reg_value(R_A3);
-        values[R_A4].ival = get_68k_reg_value(R_A4);
-        values[R_A5].ival = get_68k_reg_value(R_A5);
-        values[R_A6].ival = get_68k_reg_value(R_A6);
-        values[R_A7].ival = get_68k_reg_value(R_A7);
+		values[R_A0].ival = get_68k_reg_value(R_A0);
+		values[R_A1].ival = get_68k_reg_value(R_A1);
+		values[R_A2].ival = get_68k_reg_value(R_A2);
+		values[R_A3].ival = get_68k_reg_value(R_A3);
+		values[R_A4].ival = get_68k_reg_value(R_A4);
+		values[R_A5].ival = get_68k_reg_value(R_A5);
+		values[R_A6].ival = get_68k_reg_value(R_A6);
+		values[R_A7].ival = get_68k_reg_value(R_A7);
 
-        values[R_PC].ival = get_68k_reg_value(R_PC);
-        values[R_SP].ival = get_68k_reg_value(R_SP);
-        values[R_ISP].ival = get_68k_reg_value(R_ISP);
-        values[R_USP].ival = get_68k_reg_value(R_USP);
-        values[R_SR].ival = get_68k_reg_value(R_SR);
+		values[R_PC].ival = get_68k_reg_value(R_PC);
+		values[R_SP].ival = get_68k_reg_value(R_SP);
+		values[R_ISP].ival = get_68k_reg_value(R_ISP);
+		values[R_USP].ival = get_68k_reg_value(R_USP);
+		values[R_SR].ival = get_68k_reg_value(R_SR);
 	}
 
-    if (clsmask & RC_VDP)
-    {
-        values[R_DR00].ival = get_vdp_reg_value(R_DR00);
-        values[R_DR01].ival = get_vdp_reg_value(R_DR01);
-        values[R_DR02].ival = (get_vdp_reg_value(R_DR02) & mask(3, 3)) << 10;
-        values[R_DR03].ival = (get_vdp_reg_value(R_DR03) & mask(1, 5)) << 10;
-        values[R_DR04].ival = (get_vdp_reg_value(R_DR04) & mask(0, 3)) << 13;
-        values[R_DR05].ival = (get_vdp_reg_value(R_DR05) & mask(0, 7)) << 9;
-        values[R_DR06].ival = get_vdp_reg_value(R_DR06);
-        values[R_DR07].ival = get_vdp_reg_value(R_DR07);
-        values[R_DR08].ival = get_vdp_reg_value(R_DR10);
-        values[R_DR09].ival = get_vdp_reg_value(R_DR11);
-        values[R_DR10].ival = get_vdp_reg_value(R_DR12);
-        values[R_DR11].ival = (get_vdp_reg_value(R_DR13) & mask(0, 6)) << 10;
-        values[R_DR12].ival = get_vdp_reg_value(R_DR14);
-        values[R_DR13].ival = get_vdp_reg_value(R_DR15);
-        values[R_DR14].ival = get_vdp_reg_value(R_DR16);
-        values[R_DR15].ival = get_vdp_reg_value(R_DR17);
-        values[R_DR16].ival = get_vdp_reg_value(R_DR18);
-        values[R_DR17].ival = get_vdp_reg_value(R_DR19) | (get_vdp_reg_value(R_DR20) << 8);
-        values[R_DR18].ival = get_vdp_reg_value(R_DR21) | (get_vdp_reg_value(R_DR22) << 8);
+	if (clsmask & RC_VDP)
+	{
+		values[R_DR00].ival = get_vdp_reg_value(R_DR00);
+		values[R_DR01].ival = get_vdp_reg_value(R_DR01);
+		values[R_DR02].ival = (get_vdp_reg_value(R_DR02) & mask(3, 3)) << 10;
+		values[R_DR03].ival = (get_vdp_reg_value(R_DR03) & mask(1, 5)) << 10;
+		values[R_DR04].ival = (get_vdp_reg_value(R_DR04) & mask(0, 3)) << 13;
+		values[R_DR05].ival = (get_vdp_reg_value(R_DR05) & mask(0, 7)) << 9;
+		values[R_DR06].ival = get_vdp_reg_value(R_DR06);
+		values[R_DR07].ival = get_vdp_reg_value(R_DR07);
+		values[R_DR08].ival = get_vdp_reg_value(R_DR10);
+		values[R_DR09].ival = get_vdp_reg_value(R_DR11);
+		values[R_DR10].ival = get_vdp_reg_value(R_DR12);
+		values[R_DR11].ival = (get_vdp_reg_value(R_DR13) & mask(0, 6)) << 10;
+		values[R_DR12].ival = get_vdp_reg_value(R_DR14);
+		values[R_DR13].ival = get_vdp_reg_value(R_DR15);
+		values[R_DR14].ival = get_vdp_reg_value(R_DR16);
+		values[R_DR15].ival = get_vdp_reg_value(R_DR17);
+		values[R_DR16].ival = get_vdp_reg_value(R_DR18);
+		values[R_DR17].ival = get_vdp_reg_value(R_DR19) | (get_vdp_reg_value(R_DR20) << 8);
+		values[R_DR18].ival = get_vdp_reg_value(R_DR21) | (get_vdp_reg_value(R_DR22) << 8);
 
-        UINT16 dma_high = get_vdp_reg_value(R_DR23);
-        if (!(dma_high & 0x80))
-            values[R_DR18].ival |= ((get_vdp_reg_value(R_DR23) & mask(0, 7)) << 16);
-        else
-            values[R_DR18].ival |= ((get_vdp_reg_value(R_DR23) & mask(0, 6)) << 16);
-        values[R_DR18].ival <<= 1;
-        
-        values[R_DR19].ival = get_vdp_write_pos();
-    }
+		UINT16 dma_high = get_vdp_reg_value(R_DR23);
+		if (!(dma_high & 0x80))
+			values[R_DR18].ival |= ((get_vdp_reg_value(R_DR23) & mask(0, 7)) << 16);
+		else
+			values[R_DR18].ival |= ((get_vdp_reg_value(R_DR23) & mask(0, 6)) << 16);
+		values[R_DR18].ival <<= 1;
+		
+		values[R_DR19].ival = get_vdp_write_pos();
+	}
 
 	return 1;
 }
 
 // Write one thread register
-//    tid    - thread id
-//    regidx - register index
-//    regval - new value of the register
+//	tid	- thread id
+//	regidx - register index
+//	regval - new value of the register
 // 1-ok, 0-failed, -1-network error
 // This function is called from debthread
 static int idaapi write_register(thid_t tid, int regidx, const regval_t *value)
 {
-    if (regidx >= R_D0 && regidx < R_DR00)
-        set_68k_reg_value((register_t)regidx, value);
-    else
-    {
-        regval_t val = *value;
+	if (regidx >= R_D0 && regidx < R_DR00)
+		set_68k_reg_value((register_t)regidx, value);
+	else
+	{
+		regval_t val = *value;
 
-        switch ((register_t)regidx)
-        {
-        case R_DR02:
-            val.ival >>= 10;
-            val.ival &= mask(3, 3);
-            break;
-        case R_DR03:
-            val.ival >>= 10;
-            val.ival &= mask(1, 5);
-            break;
-        case R_DR04:
-            val.ival >>= 13;
-            val.ival &= mask(0, 3);
-            break;
-        case R_DR05:
-            val.ival >>= 9;
-            val.ival &= mask(0, 7);
-            break;
-        case R_DR13:
-            val.ival >>= 10;
-            val.ival &= mask(0, 6);
-            break;
-        case R_DR17:
-            val.ival >>= 8;
-            val.ival &= 0xFF;
-            set_vdp_reg_value(R_DR20, &val);
+		switch ((register_t)regidx)
+		{
+		case R_DR02:
+			val.ival >>= 10;
+			val.ival &= mask(3, 3);
+			break;
+		case R_DR03:
+			val.ival >>= 10;
+			val.ival &= mask(1, 5);
+			break;
+		case R_DR04:
+			val.ival >>= 13;
+			val.ival &= mask(0, 3);
+			break;
+		case R_DR05:
+			val.ival >>= 9;
+			val.ival &= mask(0, 7);
+			break;
+		case R_DR13:
+			val.ival >>= 10;
+			val.ival &= mask(0, 6);
+			break;
+		case R_DR17:
+			val.ival >>= 8;
+			val.ival &= 0xFF;
+			set_vdp_reg_value(R_DR20, &val);
 
-            val = *value;
-            val.ival &= 0xFF;
-            regidx = R_DR19;
-            break;
-        case R_DR18:
-            val.ival >>= 1;
-            val.ival >>= 16;
-            val.ival &= 0xFF;
+			val = *value;
+			val.ival &= 0xFF;
+			regidx = R_DR19;
+			break;
+		case R_DR18:
+			val.ival >>= 1;
+			val.ival >>= 16;
+			val.ival &= 0xFF;
 
-            if (!(val.ival & 0x80))
-                val.ival &= mask(0, 7);
-            else
-                val.ival &= mask(0, 6);
+			if (!(val.ival & 0x80))
+				val.ival &= mask(0, 7);
+			else
+				val.ival &= mask(0, 6);
 
-            set_vdp_reg_value(R_DR23, &val);
+			set_vdp_reg_value(R_DR23, &val);
 
-            val = *value;
-            val.ival >>= 1;
-            val.ival >>= 8;
-            val.ival &= 0xFF;
-            set_vdp_reg_value(R_DR22, &val);
+			val = *value;
+			val.ival >>= 1;
+			val.ival >>= 8;
+			val.ival &= 0xFF;
+			set_vdp_reg_value(R_DR22, &val);
 
-            val = *value;
-            val.ival >>= 1;
-            val.ival &= 0xFF;
-            regidx = R_DR21;
-            break;
-        }
-        set_vdp_reg_value((register_t)regidx, &val);
-    }
+			val = *value;
+			val.ival >>= 1;
+			val.ival &= 0xFF;
+			regidx = R_DR21;
+			break;
+		}
+		set_vdp_reg_value((register_t)regidx, &val);
+	}
 	return 1;
 }
 
@@ -687,62 +688,12 @@ static int idaapi write_register(thid_t tid, int regidx, const regval_t *value)
 //   -3: use idb segmentation
 //   -2: no changes
 //   -1: the process does not exist anymore
-//    0: failed
-//    1: new memory layout is returned
+//	0: failed
+//	1: new memory layout is returned
 // This function is called from debthread
 static int idaapi get_memory_info(meminfo_vec_t &areas)
 {
-    memory_info_t mi;
-
-    for (int i = 0; i < get_segm_qty(); ++i)
-    {
-        char buf[MAX_PATH];
-        
-        segment_t *segm = getnseg(i);
-
-        mi.startEA = segm->startEA;
-        mi.endEA = segm->endEA;
-
-        get_segm_name(segm, buf, sizeof(buf));
-        mi.name = buf;
-
-        get_segm_class(segm, buf, sizeof(buf));
-        mi.sclass = buf;
-
-        mi.sbase = 0;
-        mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
-        mi.bitness = 1;
-        areas.push_back(mi);
-    }
-
-    mi.startEA = 0xb0000000;
-    mi.endEA = 0xb000ffff + 1;
-    mi.name = "VDP_VRAM";
-    mi.sclass = "DATA";
-    mi.sbase = 0;
-    mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
-    mi.bitness = 1;
-    areas.push_back(mi);
-
-    mi.startEA = 0xb1000000;
-    mi.endEA = 0xb100007f + 1;
-    mi.name = "VDP_VSRAM";
-    mi.sclass = "DATA";
-    mi.sbase = 0;
-    mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
-    mi.bitness = 1;
-    areas.push_back(mi);
-
-    mi.startEA = 0xb2000000;
-    mi.endEA = 0xb200007f + 1;
-    mi.name = "VDP_CRAM";
-    mi.sclass = "DATA";
-    mi.sbase = 0;
-    mi.perm = 0 | SEGPERM_READ | SEGPERM_WRITE;
-    mi.bitness = 1;
-    areas.push_back(mi);
-
-	return 1;
+	return -3;
 }
 
 static size_t mess_memory_read(ea_t ea, void *buffer, size_t size)
@@ -754,23 +705,6 @@ static size_t mess_memory_read(ea_t ea, void *buffer, size_t size)
 	return size;
 }
 
-static size_t mess_vdp_read(const char *region, ea_t ea, void *buffer, size_t size)
-{
-    size_t real_size = 0;
-    UINT8 *ptr = (UINT8 *)find_region(region, '/', &real_size);
-
-    if (!(ptr || real_size))
-        return 0;
-
-    real_size = std::min(real_size, size);
-    for (size_t i = 0; i < real_size; i += 2)
-    {
-        ((UINT8*)buffer)[i] = ptr[i + 1];
-        ((UINT8*)buffer)[i + 1] = ptr[i];
-    }
-    return real_size;
-}
-
 // Read process memory
 // Returns number of read bytes
 // 0 means read error
@@ -779,18 +713,7 @@ static size_t mess_vdp_read(const char *region, ea_t ea, void *buffer, size_t si
 static ssize_t idaapi read_memory(ea_t ea, void *buffer, size_t size)
 {
 	CHECK_FOR_START(0);
-
-    char name[20];
-    get_segm_name(ea, name, sizeof(name));
-
-    if (!qstrcmp(name, "VDP_VRAM"))
-        return mess_vdp_read("m_vram", ea, buffer, size);
-    else if (!qstrcmp(name, "VDP_VSRAM"))
-        return mess_vdp_read("m_vsram", ea, buffer, size);
-    else if (!qstrcmp(name, "VDP_CRAM"))
-        return mess_vdp_read("m_cram", ea, buffer, size);
-    else
-        return mess_memory_read(ea, buffer, size);
+	return mess_memory_read(ea, buffer, size);
 }
 
 static size_t mess_memory_write(ea_t ea, const void *buffer, size_t size)
@@ -802,39 +725,12 @@ static size_t mess_memory_write(ea_t ea, const void *buffer, size_t size)
 	return size;
 }
 
-static size_t mess_vdp_write(const char *region, ea_t ea, const void *buffer, size_t size)
-{
-    size_t real_size = 0;
-    UINT8 *ptr = (UINT8 *)find_region(region, '/', &real_size);
-
-    if (!(ptr || real_size))
-        return 0;
-
-    real_size = std::min(real_size, size);
-    for (size_t i = 0; i < real_size; i += 2)
-    {
-        ptr[i + 1] = ((UINT8*)buffer)[i];
-        ptr[i] = ((UINT8*)buffer)[i + 1];
-    }
-    return real_size;
-}
-
 // Write process memory
 // Returns number of written bytes, -1-fatal error
 // This function is called from debthread
 static ssize_t idaapi write_memory(ea_t ea, const void *buffer, size_t size)
 {
-    char name[20];
-    get_segm_name(ea, name, sizeof(name));
-
-    if (!qstrcmp(name, "VDP_VRAM"))
-        return mess_vdp_write("m_vram", ea, buffer, size);
-    else if (!qstrcmp(name, "VDP_VSRAM"))
-        return mess_vdp_write("m_vsram", ea, buffer, size);
-    else if (!qstrcmp(name, "VDP_CRAM"))
-        return mess_vdp_write("m_cram", ea, buffer, size);
-    else
-        return mess_memory_write(ea, buffer, size);
+	return mess_memory_write(ea, buffer, size);
 }
 
 // Is it possible to set breakpoint?
@@ -887,55 +783,55 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 	int i;
 	int cnt = 0;
 
-    for (i = 0; i < ndel; i++)
-    {
-        bpts[nadd + i].code = BPT_OK;
-        cnt++;
+	for (i = 0; i < ndel; i++)
+	{
+		bpts[nadd + i].code = BPT_OK;
+		cnt++;
 
-        int idx;
-        switch (bpts[nadd + i].type)
-        {
-        case BPT_EXEC:
-            if ((idx = get_bpt_index(bpts[nadd + i].ea)) >= 0)
-                get_debugger()->breakpoint_clear(idx);
-            break;
+		int idx;
+		switch (bpts[nadd + i].type)
+		{
+		case BPT_EXEC:
+			if ((idx = get_bpt_index(bpts[nadd + i].ea)) >= 0)
+				get_debugger()->breakpoint_clear(idx);
+			break;
 
-        case BPT_READ:
-        case BPT_WRITE:
-        case BPT_RDWR:
-            if ((idx = get_wpt_index(bpts[nadd + i].ea)) >= 0)
-                get_debugger()->watchpoint_clear(idx);
-            break;
-        }
-    }
+		case BPT_READ:
+		case BPT_WRITE:
+		case BPT_RDWR:
+			if ((idx = get_wpt_index(bpts[nadd + i].ea)) >= 0)
+				get_debugger()->watchpoint_clear(idx);
+			break;
+		}
+	}
 
 	for (i = 0; i < nadd; ++i)
 	{
-        if (bpts[i].code != BPT_OK)
-            continue;
+		if (bpts[i].code != BPT_OK)
+			continue;
 
-        switch (bpts[i].type)
+		switch (bpts[i].type)
 		{
 		case BPT_EXEC:
-            get_debugger()->breakpoint_set(bpts[i].ea);
+			get_debugger()->breakpoint_set(bpts[i].ea);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
 
 		case BPT_READ:
-            get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, 1, NULL, NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, bpts[i].size, NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
 
 		case BPT_WRITE:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, bpts[i].ea, 1, NULL, NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, bpts[i].ea, bpts[i].size, NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
 
 		case BPT_RDWR:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, bpts[i].ea, 1, NULL, NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, bpts[i].ea, bpts[i].size, NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
@@ -945,6 +841,51 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 	return cnt;
 }
 
+// Update low-level (server side) breakpoint conditions
+// Returns nlowcnds. -1-network error
+// This function is called from debthread
+static int idaapi update_lowcnds(const lowcnd_t *lowcnds, int nlowcnds)
+{
+	int idx = 0;
+
+	for (int i = 0; i < nlowcnds; ++i)
+	{
+		bpttype_t type = lowcnds[i].type;
+
+		if (type == BPT_EXEC)
+		{
+			if ((idx = get_bpt_index(lowcnds[i].ea)) >= 0)
+				get_debugger()->breakpoint_clear(idx);
+		}
+		else if (type == BPT_READ || type == BPT_WRITE || type == BPT_RDWR)
+		{
+			if ((idx = get_wpt_index(lowcnds[i].ea)) >= 0)
+				get_debugger()->watchpoint_clear(idx);
+		}
+		
+		switch (lowcnds[i].type)
+		{
+		case BPT_EXEC:
+			get_debugger()->breakpoint_set(lowcnds[i].ea, lowcnds[i].cndbody.c_str());
+			break;
+
+		case BPT_READ:
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, lowcnds[i].ea, lowcnds[i].size, lowcnds[i].cndbody.c_str(), NULL);
+			break;
+
+		case BPT_WRITE:
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, lowcnds[i].ea, lowcnds[i].size, lowcnds[i].cndbody.c_str(), NULL);
+			break;
+
+		case BPT_RDWR:
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, lowcnds[i].ea, lowcnds[i].size, lowcnds[i].cndbody.c_str(), NULL);
+			break;
+		}
+	}
+
+	return nlowcnds;
+}
+
 int main()
 {
 	return 0;
@@ -952,7 +893,7 @@ int main()
 
 //--------------------------------------------------------------------------
 //
-//      DEBUGGER DESCRIPTION BLOCK
+//	  DEBUGGER DESCRIPTION BLOCK
 //
 //--------------------------------------------------------------------------
 
@@ -962,7 +903,7 @@ debugger_t debugger =
 	"MESSIDA", // Short debugger name
 	123, // Debugger API module id
 	"m68k", // Required processor name
-	DBG_FLAG_NOHOST | DBG_FLAG_FAKE_ATTACH | DBG_FLAG_SAFE | DBG_FLAG_NOPASSWORD | DBG_FLAG_NOSTARTDIR | DBG_FLAG_LOWCNDS | DBG_FLAG_CONNSTRING,
+	DBG_FLAG_NOHOST | DBG_FLAG_FAKE_ATTACH | DBG_FLAG_SAFE | DBG_FLAG_NOPASSWORD | DBG_FLAG_NOSTARTDIR | DBG_FLAG_LOWCNDS | DBG_FLAG_CONNSTRING | DBG_FLAG_ANYSIZE_HWBPT,
 
 	register_classes, // Array of register class names
 	RC_GENERAL, // Mask of default printed register classes
@@ -1009,7 +950,7 @@ debugger_t debugger =
 
 	is_ok_bpt,
 	update_bpts,
-	NULL, // update_lowcnds,
+	update_lowcnds,
 
 	NULL, // open_file
 	NULL, // close_file

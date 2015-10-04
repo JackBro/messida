@@ -12,7 +12,7 @@
 // A copy of the GPL 2.0 should have been included with the program.
 // If not, see http ://www.gnu.org/licenses/
 
-#define VERSION "1.5.2"
+#define VERSION "1.5.3"
 
 #include <Windows.h>
 
@@ -45,11 +45,11 @@ LRESULT CALLBACK VDPRamProc(HWND, UINT, WPARAM, LPARAM);
 
 static HINSTANCE GetHInstance()
 {
-    MEMORY_BASIC_INFORMATION mbi;
-    SetLastError(ERROR_SUCCESS);
-    VirtualQuery(GetHInstance, &mbi, sizeof(mbi));
+	MEMORY_BASIC_INFORMATION mbi;
+	SetLastError(ERROR_SUCCESS);
+	VirtualQuery(GetHInstance, &mbi, sizeof(mbi));
 
-    return (HINSTANCE)mbi.AllocationBase;
+	return (HINSTANCE)mbi.AllocationBase;
 }
 
 static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
@@ -88,32 +88,87 @@ static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
 
 static bool idaapi create_vdp_ram_window(void *ud)
 {
-    if (!VDPRamHWnd)
-        VDPRamHWnd = CreateDialog(GetHInstance(), MAKEINTRESOURCE(IDD_VDPRAM), NULL, (DLGPROC)VDPRamProc);
-    else
-        SetForegroundWindow(VDPRamHWnd);
+	if (!VDPRamHWnd)
+		VDPRamHWnd = CreateDialog(GetHInstance(), MAKEINTRESOURCE(IDD_VDPRAM), NULL, (DLGPROC)VDPRamProc);
+	else
+		SetForegroundWindow(VDPRamHWnd);
 
-    return true;
+	return true;
 }
 
 #define SHELL_MOD_VRAM "VDP RAM"
 
 static void remove_shell_vram_menu()
 {
-    if (dbg_started)
-        del_menu_item("Debugger/" SHELL_MOD_VRAM);
+	if (dbg_started)
+		del_menu_item("Debugger/" SHELL_MOD_VRAM);
 }
 
 //---------------------------------------------------------------------------
 static void install_shell_vram_menu()
 {
-    if (dbg_started)
-        add_menu_item("Debugger/StepInto",
-        SHELL_MOD_VRAM,
-        NULL,
-        SETMENU_INS | SETMENU_CTXAPP,
-        create_vdp_ram_window,
-        NULL);
+	if (dbg_started)
+		add_menu_item("Debugger/StepInto",
+		SHELL_MOD_VRAM,
+		NULL,
+		SETMENU_INS | SETMENU_CTXAPP,
+		create_vdp_ram_window,
+		NULL);
+}
+
+cli_t *reg_cli = NULL;
+
+static bool execute_mame_cmd(const char *cmd)
+{
+	struct ida_local mame_cmd_t : public exec_request_t
+	{
+		const char *line;
+		int idaapi execute(void)
+		{
+			return (debug_console_execute_command(*g_running_machine, line, FALSE) == CMDERR_NONE);
+		}
+		mame_cmd_t(const char *_line) : line(_line) {}
+	};
+	mame_cmd_t exec(cmd);
+	return execute_sync(exec, MFF_FAST);
+}
+
+// callback: the user pressed Enter
+// CLI is free to execute the line immediately or ask for more lines
+// Returns: true-executed line, false-ask for more lines
+static bool idaapi execute_mame_line(const char *line)
+{
+    return execute_mame_cmd(line);
+}
+
+static void install_remove_mame_cli(bool install)
+{
+	if (!reg_cli)
+	{
+		cli_t *cli = new cli_t();
+
+		cli->size = sizeof(cli_t);
+		cli->flags = 0;
+		cli->sname = "MAME";
+		cli->lname = "MAME - Debugger Console";
+		cli->hint = "Execute command";
+		cli->execute_line = execute_mame_line;
+		cli->complete_line = NULL;
+		cli->keydown = NULL;
+
+		reg_cli = cli;
+	}
+
+	if (install)
+	{
+		install_command_interpreter(reg_cli);
+		
+	}
+	else
+	{
+		remove_command_interpreter(reg_cli);
+		reg_cli = NULL;
+	}
 }
 
 static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
@@ -121,13 +176,15 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	switch (notification_code)
 	{
 	case dbg_notification_t::dbg_process_start:
-        dbg_started = true;
-        install_shell_vram_menu();
+		dbg_started = true;
+		install_shell_vram_menu();
+		install_remove_mame_cli(true);
 		break;
 
 	case dbg_notification_t::dbg_process_exit:
-        remove_shell_vram_menu();
-        dbg_started = false;
+		remove_shell_vram_menu();
+		install_remove_mame_cli(false);
+		dbg_started = false;
 	}
 	return 0;
 }
@@ -157,7 +214,7 @@ static int idaapi idp_to_dbg_reg(int idp_reg)
 
 static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 {
-    switch (notification_code)
+	switch (notification_code)
 	{
 	case ui_notification_t::ui_get_custom_viewer_hint:
 	{
@@ -207,7 +264,7 @@ static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 						hint.cat_sprnt((COLSTR(SCOLOR_INV"OPERAND#%d (ADDRESS: $%a)\n", SCOLOR_DREF)), op.n, op.addr);
 						(*important_lines)++;
 
-						int n = qmin(ln.get_linecnt(), 10);           // how many lines for this address?
+						int n = qmin(ln.get_linecnt(), 10);		   // how many lines for this address?
 						(*important_lines) += n;
 						for (int j = 0; j < n; ++j)
 						{
@@ -232,7 +289,7 @@ static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 							hint.cat_sprnt((COLSTR(SCOLOR_INV"OPERAND#%d (REGISTER: %s)\n", SCOLOR_DREF)), op.n, reg_name);
 							(*important_lines)++;
 
-							int n = qmin(ln.get_linecnt(), 10);           // how many lines for this address?
+							int n = qmin(ln.get_linecnt(), 10);		   // how many lines for this address?
 							(*important_lines) += n;
 							for (int j = 0; j < n; ++j)
 							{
@@ -278,7 +335,7 @@ static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 
 						(*important_lines)++;
 
-						int n = qmin(ln.get_linecnt(), 10);           // how many lines for this address?
+						int n = qmin(ln.get_linecnt(), 10);		   // how many lines for this address?
 						(*important_lines) += n;
 						for (int j = 0; j < n; ++j)
 						{

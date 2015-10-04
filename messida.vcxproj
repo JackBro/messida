@@ -139,6 +139,7 @@
     <ClCompile Include="nargv.c" />
     <ClCompile Include="plugin.cpp" />
     <ClCompile Include="vdp_ram.cpp" />
+    <ClInclude Include="debug.h" />
     <ClInclude Include="dialog_utils.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="vdp_ram.h" />
