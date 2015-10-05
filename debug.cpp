@@ -435,7 +435,10 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 			Update_VDP_RAM();
 		// are there any pending events?
 		if (g_events.retrieve(event))
+		{
+			if (event->eid != PROCESS_EXIT) pause_execution();
 			return g_events.empty() ? GDE_ONE_EVENT : GDE_MANY_EVENTS;
+		}
 		if (g_events.empty())
 			break;
 	}

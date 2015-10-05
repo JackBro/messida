@@ -185,6 +185,23 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 		remove_shell_vram_menu();
 		install_remove_mame_cli(false);
 		dbg_started = false;
+		break;
+
+	case dbg_notification_t::dbg_bpt_changed:
+		int bptev_code = va_arg(va, int);
+		bpt_t *bpt = va_arg(va, bpt_t *);
+
+		if (bpt->ea & 0xFF000000)
+		{
+			if (bptev_code == BPTEV_ADDED)
+			{
+				bpt_t upd = *bpt;
+				del_bpt(upd.loc);
+				upd.ea &= 0xFFFFFF;
+				add_bpt(upd);
+			}
+		}
+		break;
 	}
 	return 0;
 }
