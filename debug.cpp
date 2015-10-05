@@ -807,9 +807,6 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 
 	for (i = 0; i < nadd; ++i)
 	{
-		if (bpts[i].code != BPT_OK)
-			continue;
-
 		switch (bpts[i].type)
 		{
 		case BPT_EXEC:
@@ -819,19 +816,19 @@ static int idaapi update_bpts(update_bpt_info_t *bpts, int nadd, int ndel)
 			break;
 
 		case BPT_READ:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, bpts[i].size, NULL, NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, bpts[i].ea, std::max(2, bpts[i].size), NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
 
 		case BPT_WRITE:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, bpts[i].ea, bpts[i].size, NULL, NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, bpts[i].ea, std::max(2, bpts[i].size), NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
 
 		case BPT_RDWR:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, bpts[i].ea, bpts[i].size, NULL, NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, bpts[i].ea, std::max(2, bpts[i].size), NULL, NULL);
 			bpts[i].code = BPT_OK;
 			cnt++;
 			break;
@@ -870,15 +867,15 @@ static int idaapi update_lowcnds(const lowcnd_t *lowcnds, int nlowcnds)
 			break;
 
 		case BPT_READ:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, lowcnds[i].ea, lowcnds[i].size, lowcnds[i].cndbody.c_str(), NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READ, lowcnds[i].ea, std::max(2, lowcnds[i].size), lowcnds[i].cndbody.c_str(), NULL);
 			break;
 
 		case BPT_WRITE:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, lowcnds[i].ea, lowcnds[i].size, lowcnds[i].cndbody.c_str(), NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_WRITE, lowcnds[i].ea, std::max(2, lowcnds[i].size), lowcnds[i].cndbody.c_str(), NULL);
 			break;
 
 		case BPT_RDWR:
-			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, lowcnds[i].ea, lowcnds[i].size, lowcnds[i].cndbody.c_str(), NULL);
+			get_debugger()->watchpoint_set(*get_addr_space(), WATCHPOINT_READWRITE, lowcnds[i].ea, std::max(2, lowcnds[i].size), lowcnds[i].cndbody.c_str(), NULL);
 			break;
 		}
 	}
@@ -903,7 +900,7 @@ debugger_t debugger =
 	"MESSIDA", // Short debugger name
 	123, // Debugger API module id
 	"m68k", // Required processor name
-	DBG_FLAG_NOHOST | DBG_FLAG_FAKE_ATTACH | DBG_FLAG_SAFE | DBG_FLAG_NOPASSWORD | DBG_FLAG_NOSTARTDIR | DBG_FLAG_LOWCNDS | DBG_FLAG_CONNSTRING | DBG_FLAG_ANYSIZE_HWBPT,
+	DBG_FLAG_NOHOST | DBG_FLAG_CAN_CONT_BPT | DBG_FLAG_FAKE_ATTACH | DBG_FLAG_SAFE | DBG_FLAG_NOPASSWORD | DBG_FLAG_NOSTARTDIR | DBG_FLAG_LOWCNDS | DBG_FLAG_CONNSTRING | DBG_FLAG_ANYSIZE_HWBPT,
 
 	register_classes, // Array of register class names
 	RC_GENERAL, // Mask of default printed register classes
