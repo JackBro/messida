@@ -15,6 +15,7 @@
 #define VERSION "1.5.3"
 
 #include <Windows.h>
+#include <unordered_map>
 
 #include <ida.hpp>
 #include <dbg.hpp>
@@ -30,8 +31,8 @@
 #include "mess_debmod.h"
 #include "registers.h"
 
-#include "resource.h"
-#include "vdp_ram.h"
+#include "exodus_helpers\WindowFunctions.h"
+#include "exodus_windows\vdp\PaletteView\PaletteView.h"
 
 extern debugger_t debugger;
 extern running_machine *g_running_machine;
@@ -40,8 +41,7 @@ static bool plugin_inited;
 static bool dbg_started;
 
 HWND VDPRamHWnd = NULL;
-
-LRESULT CALLBACK VDPRamProc(HWND, UINT, WPARAM, LPARAM);
+std::unordered_map<int, HWND> openedWindows;
 
 static HINSTANCE GetHInstance()
 {
@@ -86,34 +86,157 @@ static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
 	return 0;
 }
 
-static bool idaapi create_vdp_ram_window(void *ud)
+#define EXODUS_MAIN_MENU "Exodus/"
+#define EXODUS_VDP_DEBUG_MENU "VDP Debug/"
+
+#define EXODUS_VDP_PALETTE_MENU "Palette"
+#define EXODUS_VDP_PALETTE_ID 1
+
+static bool check_window_opened(int id, std::unordered_map<int, HWND>::const_iterator *pair)
 {
-	if (!VDPRamHWnd)
-		VDPRamHWnd = CreateDialog(GetHInstance(), MAKEINTRESOURCE(IDD_VDPRAM), NULL, (DLGPROC)VDPRamProc);
-	else
-		SetForegroundWindow(VDPRamHWnd);
+	std::unordered_map<int, HWND>::const_iterator found = openedWindows.find(id);
+	
+	if (pair != NULL)
+		*pair = found;
+
+	return found != openedWindows.end();
+}
+
+static bool idaapi create_exodus_vdp_palette_window(void *ud)
+{
+	std::unordered_map<int, HWND>::const_iterator found;
+	if (check_window_opened(EXODUS_VDP_PALETTE_ID, &found))
+	{
+		SetForegroundWindow(found->second);
+		return true;
+	}
+	
+	//Set the window settings for this view
+	static const unsigned int paletteRows = 4;
+	static const unsigned int paletteColumns = 16;
+	static const unsigned int paletteSquareDesiredSize = 15;
+	int width = DPIScaleWidth(paletteSquareDesiredSize) * paletteColumns;
+	int height = DPIScaleHeight(paletteSquareDesiredSize) * paletteRows;
+	
+	WNDCLASSEX wc;
+	HWND hwnd;
+	const char szClassName[] = "EXODUSVDPPALWND";
+
+	//Step 1: Registering the Window Class
+	wc.cbSize = sizeof(WNDCLASSEX);
+	wc.style = 0;
+	wc.lpfnWndProc = ExodusVdpPalWndProcWindow;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.hInstance = GetHInstance();
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wc.lpszMenuName = NULL;
+	wc.lpszClassName = szClassName;
+	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+
+	if (!RegisterClassEx(&wc))
+	{
+		MessageBox(NULL, "Window Registration Failed!", "Error!",
+			MB_ICONEXCLAMATION | MB_OK);
+		return false;
+	}
+
+	// Step 2: Creating the Window
+	hwnd = CreateWindowEx(
+		0,
+		szClassName,
+		"Palette",
+		(WS_THICKFRAME | WS_VISIBLE | WS_CLIPCHILDREN),
+		CW_USEDEFAULT, CW_USEDEFAULT, width, height + DPIScaleHeight(30),
+		NULL, NULL, wc.hInstance, NULL);
+
+	if (hwnd == NULL)
+	{
+		MessageBox(NULL, "Window Creation Failed!", "Error!",
+			MB_ICONEXCLAMATION | MB_OK);
+		return false;
+	}
+
+	openedWindows.emplace(EXODUS_VDP_PALETTE_ID, hwnd);
+	
+	UpdateWindow(hwnd);
 
 	return true;
 }
 
-#define SHELL_MOD_VRAM "VDP RAM"
-
-static void remove_shell_vram_menu()
+static void install_exodus_vdp_vdp_palette_menu()
 {
 	if (dbg_started)
-		del_menu_item("Debugger/" SHELL_MOD_VRAM);
+	{
+		add_menu_item("Debugger/" EXODUS_MAIN_MENU EXODUS_VDP_DEBUG_MENU,
+			EXODUS_VDP_PALETTE_MENU,
+			NULL,
+			SETMENU_APP | SETMENU_CTXAPP,
+			create_exodus_vdp_palette_window,
+			NULL);
+	}
 }
 
-//---------------------------------------------------------------------------
-static void install_shell_vram_menu()
+static void remove_exodus_vdp_vdp_palette_menu()
 {
 	if (dbg_started)
-		add_menu_item("Debugger/StepInto",
-		SHELL_MOD_VRAM,
-		NULL,
-		SETMENU_INS | SETMENU_CTXAPP,
-		create_vdp_ram_window,
-		NULL);
+	{
+		del_menu_item("Debugger/" EXODUS_MAIN_MENU EXODUS_VDP_DEBUG_MENU EXODUS_VDP_PALETTE_MENU);
+	}
+}
+
+static void install_exodus_vdp_debug_menus()
+{
+	if (dbg_started)
+	{
+		if (add_menu_item("Debugger/" EXODUS_MAIN_MENU,
+			EXODUS_VDP_DEBUG_MENU,
+			NULL,
+			SETMENU_APP | SETMENU_CTXAPP,
+			NULL,
+			NULL))
+		{
+			install_exodus_vdp_vdp_palette_menu();
+		}
+	}
+}
+
+static void remove_exodus_vdp_debug_menus()
+{
+	if (dbg_started)
+	{
+		remove_exodus_vdp_vdp_palette_menu();
+		
+		del_menu_item("Debugger/" EXODUS_MAIN_MENU EXODUS_VDP_DEBUG_MENU);
+	}
+}
+
+static void install_exodus_menus()
+{
+	if (dbg_started)
+	{
+		if (add_menu_item("Debugger/StepInto",
+			EXODUS_MAIN_MENU,
+			NULL,
+			SETMENU_INS | SETMENU_CTXAPP,
+			NULL,
+			NULL))
+		{
+			install_exodus_vdp_debug_menus();
+		}
+	}
+}
+
+static void remove_exodus_menus()
+{
+	if (dbg_started)
+	{
+		remove_exodus_vdp_debug_menus();
+
+		del_menu_item("Debugger/" EXODUS_MAIN_MENU);
+	}
 }
 
 cli_t *reg_cli = NULL;
@@ -177,12 +300,16 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	{
 	case dbg_notification_t::dbg_process_start:
 		dbg_started = true;
-		install_shell_vram_menu();
+		//install_shell_vram_menu();
+		install_exodus_menus();
+		//install_exodus_vdp_vdp_palette_menu();
 		install_remove_mame_cli(true);
 		break;
 
 	case dbg_notification_t::dbg_process_exit:
-		remove_shell_vram_menu();
+		remove_exodus_menus();
+		//remove_exodus_vdp_vdp_palette_menu();
+		//remove_shell_vram_menu();
 		install_remove_mame_cli(false);
 		dbg_started = false;
 		break;

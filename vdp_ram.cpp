@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 #include <Windows.h>
 #include <algorithm>
 #include "resource.h"
@@ -9,8 +11,6 @@
 #include "dialog_utils.h"
 #include "vdp_ram.h"
 #include "debug.h"
-
-#undef min
 
 //extern HWND HWnd;
 extern HWND VDPRamHWnd;

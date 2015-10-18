@@ -79,7 +79,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalOptions>/wd4025 /wd4003 /wd4018 /wd4061 /wd4100 /wd4127 /wd4131 /wd4141 /wd4146 /wd4150 /wd4189 /wd4191 /wd4201 /wd4232 /wd4242 /wd4244 /wd4250 /wd4255 /wd4296 /wd4306 /wd4310 /wd4312 /wd4324 /wd4347 /wd4435 /wd4510 /wd4512 /wd4514 /wd4571 /wd4610 /wd4611 /wd4619 /wd4625 /wd4626 /wd4640 /wd4668 /wd4702 /wd4706 /wd4710 /wd4711 /wd4805 /wd4820 /wd4826 /wd4365 /wd4389 /wd4245 /wd4388 /wd4267 /wd4005 /wd4350 /wd4996 /wd4060 /wd4065 /wd4290 /wd4355 /wd4800 /wd4371 /wd4548  /wd4305 /wd4121 /wd4309 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(IDA_SDK)\include;..\..\src\emu\debug;..\dxsdk\Include;..\..\src\osd;..\..\src\emu;..\..\src\mame;..\..\src\lib;..\..\src\lib\util;..\;..\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(IDA_SDK)\include;..\..\src\emu\debug;..\dxsdk\Include;..\..\src\osd;..\..\src\emu;..\..\src\mame;..\..\src\lib;..\..\src\lib\util;..\;..\zlib;exodus_helpers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__NT__;__IDP__;USE_STANDARD_FILE_FUNCTIONS;INLINE=static inline;CRLF=3;LSB_FIRST;FLAC__NO_DLL;LUA_COMPAT_APIINTCASTS;XML_STATIC;NATIVE_DRC=drcbe_x86;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;WIN32;_WIN32;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">MAME_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug64'">MAME_DEBUG;__EA64__;PTR64;__X64__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -136,11 +136,16 @@
     <ClCompile Include="..\..\src\version.c" />
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="dialog_utils.cpp" />
+    <ClCompile Include="exodus_windows\vdp\PaletteView\PaletteView.cpp" />
+    <ClCompile Include="exodus_windows\vdp\PlaneView\PlaneView.cpp" />
     <ClCompile Include="nargv.c" />
     <ClCompile Include="plugin.cpp" />
     <ClCompile Include="vdp_ram.cpp" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="dialog_utils.h" />
+    <ClInclude Include="exodus_windows\vdp\PaletteView\PaletteView.h" />
+    <ClInclude Include="exodus_windows\vdp\PlaneView\PlaneView.h" />
+    <ClInclude Include="exodus_windows\vdp\resource.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="vdp_ram.h" />
     <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\7z.vcxproj">
@@ -212,6 +217,7 @@
     <ClInclude Include="registers.h" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="exodus_windows\vdp\315-5313Menus.rc" />
     <ResourceCompile Include="messida.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

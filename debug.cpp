@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <algorithm>
+#include <unordered_map>
 #include <ida.hpp>
 #include <idd.hpp>
 #include <dbg.hpp>
@@ -19,9 +20,12 @@
 #include "vdp_ram.h"
 #include "debug.h"
 
+#undef malloc
+
 extern int utf8_main(int argc, char *argv[]);
 
 extern HWND VDPRamHWnd;
+extern std::unordered_map<int, HWND> openedWindows;
 
 codemap_t g_codemap;
 running_machine *g_running_machine = NULL;
@@ -205,15 +209,20 @@ static UINT16 get_vdp_write_pos()
 	return ptr[0];
 }
 
+static UINT16 get_vdp_reg_value(register_t idx, UINT16 *region, size_t real_size)
+{
+	if (!(region || real_size))
+		return 0;
+
+	return region[idx - R_DR00];
+}
+
 static UINT16 get_vdp_reg_value(register_t idx)
 {
 	size_t real_size = 0;
 	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
 
-	if (!(ptr || real_size))
-		return 0;
-
-	return ptr[idx - R_DR00];
+	return get_vdp_reg_value(idx, ptr, real_size);
 }
 
 static void set_vdp_reg_value(register_t idx, const regval_t *value)
@@ -235,6 +244,50 @@ static ea_t get_68k_reg_value(register_t idx)
 static void set_68k_reg_value(register_t idx, const regval_t *value)
 {
 	get_symbol_table()->set_value(register_str_t[idx], value->ival);
+}
+
+const size_t cram_size = 0x80;
+static void dump_cram()
+{
+	if (ptrCRAM == NULL)
+		ptrCRAM = (UINT8*)malloc(cram_size);
+	mess_vdp_read("m_cram", ptrCRAM, cram_size);
+}
+
+const size_t vram_size = 0x10000;
+static void dump_vram()
+{
+	if (ptrVRAM == NULL)
+		ptrVRAM = (UINT8*)malloc(vram_size);
+	mess_vdp_read("m_vram", ptrVRAM, vram_size);
+}
+
+inline static COLORREF get_color(UINT8 *cram, int index)
+{
+	UINT16 word = ((cram[index * 2] << 8) | cram[index * 2 + 1]);
+
+	UINT8 r = (UINT8)(((word >> 0) & 0xE) << 4);
+	UINT8 g = (UINT8)(((word >> 4) & 0xE) << 4);
+	UINT8 b = (UINT8)(((word >> 8) & 0xE) << 4);
+
+	return RGB(r, g, b);
+}
+
+static size_t mess_vdp_read(const char *region, void *buffer, size_t size)
+{
+	size_t real_size = 0;
+	UINT8 *ptr = (UINT8 *)find_region(region, '/', &real_size);
+
+	if (!(ptr || real_size))
+		return 0;
+
+	real_size = std::min(real_size, size);
+	for (size_t i = 0; i < real_size; i += 2)
+	{
+		((UINT8*)buffer)[i] = ptr[i + 1];
+		((UINT8*)buffer)[i + 1] = ptr[i];
+	}
+	return real_size;
 }
 
 static void prepare_codemap()
@@ -290,7 +343,12 @@ static void finish_execution()
 {
 	if (stopped) return;
 	stopped = true;
-	SendMessage(VDPRamHWnd, WM_CLOSE, 0, 0);
+
+	std::for_each(openedWindows.begin(), openedWindows.end(), [](const std::pair<int, HWND> & pair)
+	{
+		SendMessage(pair.second, WM_CLOSE, 0, 0);
+	});
+	openedWindows.clear();
 
 	if (mess_thread != NULL)
 	{
@@ -532,9 +590,14 @@ static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thre
 	return do_step(get_running_notification());
 }
 
-static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt = 1)
+static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt)
 {
 	return (((1 << bits_cnt) - 1) << bit_idx);
+}
+
+static UINT32 mask_get(UINT32 data, UINT8 bit_idx, UINT8 bits_cnt)
+{
+	return (data >> bit_idx) & ((((1 << (bits_cnt - 1)) - 1) << 1) | 0x01);
 }
 
 // Read thread registers

@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\build\generated\mame\megadrive\drivlist.c" />
+    <ClCompile Include="..\..\src\mame\mame.c" />
+    <ClCompile Include="..\..\src\version.c" />
+    <ClCompile Include="debug.cpp" />
+    <ClCompile Include="dialog_utils.cpp" />
+    <ClCompile Include="nargv.c" />
+    <ClCompile Include="plugin.cpp" />
+    <ClCompile Include="vdp_ram.cpp">
+      <Filter>gens</Filter>
+    </ClCompile>
+    <ClCompile Include="exodus_windows\vdp\PaletteView\PaletteView.cpp">
+      <Filter>exodus_windows\vdp\PaletteView</Filter>
+    </ClCompile>
+    <ClCompile Include="exodus_windows\vdp\PlaneView\PlaneView.cpp">
+      <Filter>exodus_helpers</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="debug.h" />
+    <ClInclude Include="dialog_utils.h" />
+    <ClInclude Include="registers.h" />
+    <ClInclude Include="exodus_windows\vdp\resource.h">
+      <Filter>exodus_windows\vdp</Filter>
+    </ClInclude>
+    <ClInclude Include="vdp_ram.h">
+      <Filter>gens</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>gens</Filter>
+    </ClInclude>
+    <ClInclude Include="exodus_windows\vdp\PaletteView\PaletteView.h">
+      <Filter>exodus_windows\vdp\PaletteView</Filter>
+    </ClInclude>
+    <ClInclude Include="exodus_windows\vdp\PlaneView\PlaneView.h">
+      <Filter>exodus_helpers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="messida.rc" />
+    <ResourceCompile Include="exodus_windows\vdp\315-5313Menus.rc">
+      <Filter>exodus_windows\vdp</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="gens">
+      <UniqueIdentifier>{ba27ab8e-39c8-49c9-b45f-6141eb1c9e3e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="exodus_windows">
+      <UniqueIdentifier>{244a05ea-d7d4-4181-b8d5-253d5b0ea9fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="exodus_windows\vdp">
+      <UniqueIdentifier>{976a13d6-c5a3-4b8c-9cb9-b49ed2eb74d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="exodus_helpers">
+      <UniqueIdentifier>{42c3b340-a7c6-4966-92ed-1c9f8ffc1665}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="exodus_windows\vdp\PaletteView">
+      <UniqueIdentifier>{d2f1aa8b-2690-4884-8b26-0343ad9c64ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="exodus_windows\vdp\PlaneView">
+      <UniqueIdentifier>{4e519a64-82a4-46b6-a6b0-ebe94c7da9c6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
