@@ -2,7 +2,8 @@
 #define __PLANEVIEW_H__
 
 #include <Windows.h>
-#include <string>
+
+INT_PTR CALLBACK ExodusVdpPlaneViewWndProcDialog(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
 //Enumerations
 enum SelectedLayer
@@ -53,6 +54,6 @@ struct SpriteMappingTableEntry
 };
 
 static size_t real_size;
-static UINT16 *ptr;
+static UINT16 *ptrRegs;
 
 #endif

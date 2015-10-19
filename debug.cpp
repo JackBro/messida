@@ -1,4 +1,5 @@
-#include <Windows.h>
+#include "debug.h"
+
 #include <algorithm>
 #include <unordered_map>
 #include <ida.hpp>
@@ -18,7 +19,6 @@
 
 #include "registers.h"
 #include "vdp_ram.h"
-#include "debug.h"
 
 #undef malloc
 
@@ -209,7 +209,7 @@ static UINT16 get_vdp_write_pos()
 	return ptr[0];
 }
 
-static UINT16 get_vdp_reg_value(register_t idx, UINT16 *region, size_t real_size)
+UINT16 get_vdp_reg_value(register_t idx, UINT16 *region, size_t real_size)
 {
 	if (!(region || real_size))
 		return 0;
@@ -217,7 +217,7 @@ static UINT16 get_vdp_reg_value(register_t idx, UINT16 *region, size_t real_size
 	return region[idx - R_DR00];
 }
 
-static UINT16 get_vdp_reg_value(register_t idx)
+UINT16 get_vdp_reg_value(register_t idx)
 {
 	size_t real_size = 0;
 	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
@@ -225,7 +225,7 @@ static UINT16 get_vdp_reg_value(register_t idx)
 	return get_vdp_reg_value(idx, ptr, real_size);
 }
 
-static void set_vdp_reg_value(register_t idx, const regval_t *value)
+void set_vdp_reg_value(register_t idx, const regval_t *value)
 {
 	size_t real_size = 0;
 	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
@@ -246,23 +246,35 @@ static void set_68k_reg_value(register_t idx, const regval_t *value)
 	get_symbol_table()->set_value(register_str_t[idx], value->ival);
 }
 
-const size_t cram_size = 0x80;
-static void dump_cram()
+size_t cram_size = 0;
+size_t vram_size = 0;
+size_t vsram_size = 0;
+UINT8 *ptrVRAM = NULL;
+UINT8 *ptrCRAM = NULL;
+UINT8 *ptrVSRAM = NULL;
+
+void dump_cram()
 {
-	if (ptrCRAM == NULL)
-		ptrCRAM = (UINT8*)malloc(cram_size);
-	mess_vdp_read("m_cram", ptrCRAM, cram_size);
+	void *ptr = ptrCRAM;
+	mess_vdp_read("m_cram", ptr, cram_size);
+	ptrCRAM = (UINT8 *)ptr;
 }
 
-const size_t vram_size = 0x10000;
-static void dump_vram()
+void dump_vram()
 {
-	if (ptrVRAM == NULL)
-		ptrVRAM = (UINT8*)malloc(vram_size);
-	mess_vdp_read("m_vram", ptrVRAM, vram_size);
+	void *ptr = ptrVRAM;
+	mess_vdp_read("m_vram", ptr, vram_size);
+	ptrVRAM = (UINT8 *)ptr;
 }
 
-inline static COLORREF get_color(UINT8 *cram, int index)
+void dump_vsram()
+{
+	void *ptr = ptrVSRAM;
+	mess_vdp_read("m_vsram", ptr, vsram_size);
+	ptrVSRAM = (UINT8 *)ptr;
+}
+
+COLORREF get_color(UINT8 *cram, int index)
 {
 	UINT16 word = ((cram[index * 2] << 8) | cram[index * 2 + 1]);
 
@@ -273,21 +285,41 @@ inline static COLORREF get_color(UINT8 *cram, int index)
 	return RGB(r, g, b);
 }
 
-static size_t mess_vdp_read(const char *region, void *buffer, size_t size)
+size_t mess_vdp_read(const char *region, void* &buffer, size_t &orig_size)
 {
 	size_t real_size = 0;
 	UINT8 *ptr = (UINT8 *)find_region(region, '/', &real_size);
 
+	if (orig_size == 0)
+		orig_size = real_size;
+
 	if (!(ptr || real_size))
 		return 0;
 
-	real_size = std::min(real_size, size);
+	if (buffer == NULL)
+		buffer = (UINT8*)malloc(real_size);
+
+	real_size = std::min(real_size, orig_size);
 	for (size_t i = 0; i < real_size; i += 2)
 	{
 		((UINT8*)buffer)[i] = ptr[i + 1];
 		((UINT8*)buffer)[i + 1] = ptr[i];
 	}
 	return real_size;
+}
+
+HINSTANCE GetHInstance()
+{
+	MEMORY_BASIC_INFORMATION mbi;
+	SetLastError(ERROR_SUCCESS);
+	VirtualQuery(GetHInstance, &mbi, sizeof(mbi));
+
+	return (HINSTANCE)mbi.AllocationBase;
+}
+
+UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt)
+{
+	return (((1 << bits_cnt) - 1) << bit_idx);
 }
 
 static void prepare_codemap()
@@ -489,8 +521,6 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 {
 	while (true)
 	{
-		if (!stopped)
-			Update_VDP_RAM();
 		// are there any pending events?
 		if (g_events.retrieve(event))
 		{
@@ -588,16 +618,6 @@ static int do_step(dbg_notification_t idx)
 static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thread
 {
 	return do_step(get_running_notification());
-}
-
-static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt)
-{
-	return (((1 << bits_cnt) - 1) << bit_idx);
-}
-
-static UINT32 mask_get(UINT32 data, UINT8 bit_idx, UINT8 bits_cnt)
-{
-	return (data >> bit_idx) & ((((1 << (bits_cnt - 1)) - 1) << 1) | 0x01);
 }
 
 // Read thread registers

@@ -1,22 +1,22 @@
 #include "PlaneView.h"
 #include "..\resource.h"
 
-#include "..\..\..\exodus_helpers\WindowFunctions.h"
-
 #include "..\..\..\debug.h"
+#include "..\..\..\exodus_helpers\WindowFunctions.h"
 
 #include <vector>
 #include <set>
 
 //Event handlers
 INT_PTR msgWM_INITDIALOG(HWND hwnd, WPARAM wParam, LPARAM lParam);
-INT_PTR msgWM_DESTROY(HWND hwnd, WPARAM wParam, LPARAM lParam);
+INT_PTR msgWM_CLOSE(HWND hwnd, WPARAM wParam, LPARAM lParam);
 INT_PTR msgWM_COMMAND(HWND hwnd, WPARAM wParam, LPARAM lParam);
 INT_PTR msgWM_HSCROLL(HWND hwnd, WPARAM wParam, LPARAM lParam);
 INT_PTR msgWM_VSCROLL(HWND hwnd, WPARAM wParam, LPARAM lParam);
 void UpdateScrollbar(HWND scrollWindow, WPARAM wParam);
 
 //Render window procedure
+LRESULT WndProcRender(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 static LRESULT CALLBACK WndProcRenderStatic(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
 //Render window event handlers
@@ -27,7 +27,12 @@ LRESULT msgRenderWM_LBUTTONDOWN(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgRenderWM_KEYUP(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgRenderWM_KEYDOWN(HWND hwnd, WPARAM wParam, LPARAM lParam);
 
-static void GetScrollPlanePaletteInfo(const std::vector<unsigned char>& vramData, unsigned int mappingBaseAddress, unsigned int patternBaseAddress, unsigned int planeWidth, unsigned int planeHeight, unsigned int xpos, unsigned int ypos, bool interlaceMode2Active, unsigned int& paletteRow, unsigned int& paletteIndex);
+static SpriteMappingTableEntry GetSpriteMappingTableEntry(unsigned int spriteTableBaseAddress, unsigned int entryNo);
+static void GetScrollPlanePaletteInfo(UINT8* vramData, unsigned int mappingBaseAddress, unsigned int patternBaseAddress, unsigned int planeWidth, unsigned int planeHeight, unsigned int xpos, unsigned int ypos, bool interlaceMode2Active, unsigned int& paletteRow, unsigned int& paletteIndex);
+static unsigned int CalculatePatternDataRowNumber(unsigned int patternRowNumberNoFlip, bool interlaceMode2Active, UINT16 mappingData);
+static unsigned int CalculatePatternDataRowAddress(unsigned int patternRowNumber, unsigned int patternCellOffset, bool interlaceMode2Active, UINT16 mappingData);
+static void DigitalRenderReadVscrollData(unsigned int screenColumnNumber, unsigned int layerNumber, bool vscrState, bool interlaceMode2Active, unsigned int& layerVscrollPatternDisplacement, unsigned int& layerVscrollMappingDisplacement, UINT16& vsramReadCache);
+static void GetScrollPlaneHScrollData(UINT8* vramData, unsigned int screenRowNumber, unsigned int hscrollDataBase, bool hscrState, bool lscrState, bool layerA, unsigned int& layerHscrollPatternDisplacement, unsigned int& layerHscrollMappingDisplacement);
 
 HGLRC glrc;
 HWND hwndRender;
@@ -70,10 +75,12 @@ unsigned int layerBPatternBase;
 unsigned int windowPatternBase;
 unsigned int spritePatternBase;
 
+bool needsUpdate;
+
 //----------------------------------------------------------------------------------------
 //Member window procedure
 //----------------------------------------------------------------------------------------
-INT_PTR WndProcDialog(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+INT_PTR CALLBACK ExodusVdpPlaneViewWndProcDialog(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	switch(msg)
 	{
@@ -85,8 +92,10 @@ INT_PTR WndProcDialog(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		return msgWM_HSCROLL(hwnd, wparam, lparam);
 	case WM_VSCROLL:
 		return msgWM_VSCROLL(hwnd, wparam, lparam);
+	case WM_DESTROY:
+		return msgWM_CLOSE(hwnd, wparam, lparam);
 	}
-	return FALSE;
+	return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
 //----------------------------------------------------------------------------------------
@@ -231,8 +240,9 @@ INT_PTR msgWM_INITDIALOG(HWND hwnd, WPARAM wparam, LPARAM lparam)
 }
 
 //----------------------------------------------------------------------------------------
-INT_PTR msgWM_DESTROY(HWND hwnd, WPARAM wParam, LPARAM lParam)
+INT_PTR msgWM_CLOSE(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
+	DestroyWindow(hwnd);
 	//Note that we need to explicitly destroy the child window here, since we share state
 	//with the child window, passing in the "this" pointer as its state. Since the
 	//destructor for our state may be called anytime after this window is destroyed, and
@@ -555,6 +565,9 @@ LRESULT WndProcRender(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		return msgRenderWM_CREATE(hwnd, wparam, lparam);
 	case WM_DESTROY:
 		return msgRenderWM_DESTROY(hwnd, wparam, lparam);
+	case WM_PAINT:
+		needsUpdate = true;
+		break;
 	case WM_TIMER:
 		return msgRenderWM_TIMER(hwnd, wparam, lparam);
 	case WM_LBUTTONDOWN:
@@ -573,7 +586,7 @@ LRESULT WndProcRender(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 LRESULT msgRenderWM_CREATE(HWND hwnd, WPARAM wparam, LPARAM lparam)
 {
 	real_size = 0;
-	ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
+	ptrRegs = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
 
 	//OpenGL Initialization code
 	int screenWidth = DPIScaleWidth(64*8);
@@ -594,7 +607,7 @@ LRESULT msgRenderWM_CREATE(HWND hwnd, WPARAM wparam, LPARAM lparam)
 	int bufferHeight = 64*8;
 	buffer = new unsigned char[bufferWidth * bufferHeight * 4];
 
-	SetTimer(hwnd, 1, 1000/25, NULL);
+	SetTimer(hwnd, 1, 1000/15, NULL);
 
 	return 0;
 }
@@ -638,7 +651,7 @@ static void CalculateEffectiveCellScrollSize(unsigned int hszState, unsigned int
 
 static UINT16 get_vdp_reg_val(char idx)
 {
-	get_vdp_reg_value((register_t)(R_DR00 + idx), ptr, real_size);
+	return get_vdp_reg_value((register_t)(R_DR00 + idx), ptrRegs, real_size);
 }
 
 //----------------------------------------------------------------------------------------
@@ -871,7 +884,8 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 
 	//Obtain a copy of the current VRAM data buffer
 	dump_vram();
-	std::vector<UINT8> vramDataCopy(ptrVRAM);
+	dump_cram();
+	dump_vsram();
 
 	//Fill the plane render buffer
 	for(unsigned int ypos = 0; ypos < height; ++ypos)
@@ -884,20 +898,20 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 
 			//Retrieve the pixel value for the selected layer at the current position
 			bool outsideSelectedPlane = true;
-			unsigned int paletteRow;
-			unsigned int paletteIndex;
+			unsigned int paletteRow = 0;
+			unsigned int paletteIndex = 0;
 			switch(selectedLayer)
 			{
 			case SELECTEDLAYER_LAYERA:
-				GetScrollPlanePaletteInfo(vramDataCopy, layerAMappingBase, layerAPatternBase, layerAScrollPlaneWidth, layerAScrollPlaneHeight, layerPixelPosX, layerPixelPosY, interlaceMode2Active, paletteRow, paletteIndex);
+				GetScrollPlanePaletteInfo(ptrVRAM, layerAMappingBase, layerAPatternBase, layerAScrollPlaneWidth, layerAScrollPlaneHeight, layerPixelPosX, layerPixelPosY, interlaceMode2Active, paletteRow, paletteIndex);
 				outsideSelectedPlane = (layerPixelPosX >= (layerAScrollPlaneWidth * blockPixelSizeX)) || (layerPixelPosY >= (layerAScrollPlaneHeight * blockPixelSizeY));
 				break;
 			case SELECTEDLAYER_LAYERB:
-				GetScrollPlanePaletteInfo(vramDataCopy, layerBMappingBase, layerBPatternBase, layerBScrollPlaneWidth, layerBScrollPlaneHeight, layerPixelPosX, layerPixelPosY, interlaceMode2Active, paletteRow, paletteIndex);
+				GetScrollPlanePaletteInfo(ptrVRAM, layerBMappingBase, layerBPatternBase, layerBScrollPlaneWidth, layerBScrollPlaneHeight, layerPixelPosX, layerPixelPosY, interlaceMode2Active, paletteRow, paletteIndex);
 				outsideSelectedPlane = (layerPixelPosX >= (layerBScrollPlaneWidth * blockPixelSizeX)) || (layerPixelPosY >= (layerBScrollPlaneHeight * blockPixelSizeY));
 				break;
 			case SELECTEDLAYER_WINDOW:
-				GetScrollPlanePaletteInfo(vramDataCopy, windowMappingBase, windowPatternBase, windowScrollPlaneWidth, windowScrollPlaneHeight, layerPixelPosX, layerPixelPosY, interlaceMode2Active, paletteRow, paletteIndex);
+				GetScrollPlanePaletteInfo(ptrVRAM, windowMappingBase, windowPatternBase, windowScrollPlaneWidth, windowScrollPlaneHeight, layerPixelPosX, layerPixelPosY, interlaceMode2Active, paletteRow, paletteIndex);
 				outsideSelectedPlane = (layerPixelPosX >= (windowScrollPlaneWidth * blockPixelSizeX)) || (layerPixelPosY >= (windowScrollPlaneHeight * blockPixelSizeY));
 				break;
 			case SELECTEDLAYER_SPRITES:
@@ -952,7 +966,7 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 		do
 		{
 			//Read the mapping data for this sprite
-			SpriteMappingTableEntry spriteMapping = model.GetSpriteMappingTableEntry(spriteMappingBase, currentSpriteNo);
+			SpriteMappingTableEntry spriteMapping = GetSpriteMappingTableEntry(spriteMappingBase, currentSpriteNo);
 
 			//Render this sprite to the buffer
 			unsigned int spriteHeightInCells = spriteMapping.height + 1;
@@ -984,18 +998,18 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 					//Calculate the VRAM address of the target pattern row data
 					const unsigned int patternDataRowByteSize = 4;
 					const unsigned int blockPatternByteSize = blockPixelSizeY * patternDataRowByteSize;
-					unsigned int patternRowDataAddress = (((spriteMapping.blockNumber + blockOffset) * blockPatternByteSize) + (patternRowNo * patternDataRowByteSize)) % (unsigned int)vramDataCopy.size();
-					patternRowDataAddress = (spritePatternBase + patternRowDataAddress) % (unsigned int)vramDataCopy.size();
+					unsigned int patternRowDataAddress = (((spriteMapping.blockNumber + blockOffset) * blockPatternByteSize) + (patternRowNo * patternDataRowByteSize)) % (unsigned int)vram_size;
+					patternRowDataAddress = (spritePatternBase + patternRowDataAddress) % (unsigned int)vram_size;
 
 					//Read the pattern data byte for the target pixel in the target block
 					const unsigned int pixelsPerPatternByte = 2;
 					unsigned int patternByteNo = patternColumnNo / pixelsPerPatternByte;
 					bool patternDataUpperHalf = (patternColumnNo % pixelsPerPatternByte) == 0;
-					Data patternData(8, vramDataCopy[patternRowDataAddress + patternByteNo]);
+					UINT8 patternData = ptrVRAM[patternRowDataAddress + patternByteNo];
 
 					//Return the target palette row and index numbers
 					unsigned int paletteRow = spriteMapping.paletteLine;
-					unsigned int paletteIndex = patternData.GetDataSegment((patternDataUpperHalf)? 4: 0, 4);
+					unsigned int paletteIndex = mask_get(patternData, (patternDataUpperHalf)? 4: 0, 4);
 
 					//If this pixel is transparent, skip it.
 					if(paletteIndex == 0)
@@ -1048,8 +1062,8 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 		{
 			for(unsigned int screenRow = 0; screenRow < screenHeightInPixels; ++screenRow)
 			{
-				unsigned int pixelsPerColumn = model.cellsPerColumn * blockPixelSizeX;
-				unsigned int screenColumnCount = (screenWidthInCells / model.cellsPerColumn);
+				unsigned int pixelsPerColumn = 2 * blockPixelSizeX;
+				unsigned int screenColumnCount = (screenWidthInCells / 2);
 				for(unsigned int screenColumn = 0; screenColumn < screenColumnCount; ++screenColumn)
 				{
 					//Calculate the properties for the selected layer
@@ -1058,15 +1072,15 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 					unsigned int layerScrollPlaneHeightInPixels = ((selectedLayer == SELECTEDLAYER_LAYERA)? layerAScrollPlaneHeight: layerBScrollPlaneHeight) * blockPixelSizeY;
 
 					//Read the vertical scroll data for this column
-					Data vsramDataCache(16);
+					UINT16 vsramDataCache = 0;
 					unsigned int layerVScrollPatternDisplacement;
 					unsigned int layerVScrollMappingDisplacement;
-					model.DigitalRenderReadVscrollData(screenColumn, (inLayerA)? 0: 1, vscrState, interlaceMode2Active, layerVScrollPatternDisplacement, layerVScrollMappingDisplacement, vsramDataCache);
+					DigitalRenderReadVscrollData(screenColumn, (inLayerA)? 0: 1, vscrState, interlaceMode2Active, layerVScrollPatternDisplacement, layerVScrollMappingDisplacement, vsramDataCache);
 
 					//Read the horizontal scroll data for this row
 					unsigned int layerHScrollPatternDisplacement;
 					unsigned int layerHScrollMappingDisplacement;
-					GetScrollPlaneHScrollData(vramDataCopy, screenRow, hscrollDataBase, hscrState, lscrState, inLayerA, layerHScrollPatternDisplacement, layerHScrollMappingDisplacement);
+					GetScrollPlaneHScrollData(ptrVRAM, screenRow, hscrollDataBase, hscrState, lscrState, inLayerA, layerHScrollPatternDisplacement, layerHScrollMappingDisplacement);
 
 					//Calculate the screen boundaries within the selected layer using the
 					//scroll data for the current column and row
@@ -1203,7 +1217,7 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 
 	//Draw the rendered buffer data to the window
 	HDC hdc = GetDC(hwnd);
-	if(hdc != NULL)
+	if (hdc != NULL)
 	{
 		bool madeCurrent = true;
 		if (needsUpdate)
@@ -1228,10 +1242,10 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 			glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
 			//Draw our screen boundary lines
-			for(unsigned int i = 0; i < (unsigned int)validScreenBoundaryLines.size(); ++i)
+			for (unsigned int i = 0; i < (unsigned int)validScreenBoundaryLines.size(); ++i)
 			{
 				//Set the colour for this line
-				if(validScreenBoundaryLines[i].primitiveIsScreenBoundary)
+				if (validScreenBoundaryLines[i].primitiveIsScreenBoundary)
 				{
 					glColor3d(0.0, 1.0, 0.0);
 				}
@@ -1242,8 +1256,8 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 
 				//Draw the line
 				glBegin(GL_LINES);
-					glVertex2i(validScreenBoundaryLines[i].pixelPosXBegin, validScreenBoundaryLines[i].pixelPosYBegin);
-					glVertex2i(validScreenBoundaryLines[i].pixelPosXEnd, validScreenBoundaryLines[i].pixelPosYEnd);
+				glVertex2i(validScreenBoundaryLines[i].pixelPosXBegin, validScreenBoundaryLines[i].pixelPosYBegin);
+				glVertex2i(validScreenBoundaryLines[i].pixelPosXEnd, validScreenBoundaryLines[i].pixelPosYEnd);
 				glEnd();
 			}
 			glColor3d(1.0, 1.0, 1.0);
@@ -1252,13 +1266,13 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			glColor4d(0.0, 1.0, 0.0, 0.5);
-			for(unsigned int i = 0; i < (unsigned int)validScreenBoundaryQuads.size(); ++i)
+			for (unsigned int i = 0; i < (unsigned int)validScreenBoundaryQuads.size(); ++i)
 			{
 				glBegin(GL_QUADS);
-					glVertex2i(validScreenBoundaryQuads[i].pixelPosXBegin, validScreenBoundaryQuads[i].pixelPosYBegin);
-					glVertex2i(validScreenBoundaryQuads[i].pixelPosXEnd, validScreenBoundaryQuads[i].pixelPosYBegin);
-					glVertex2i(validScreenBoundaryQuads[i].pixelPosXEnd, validScreenBoundaryQuads[i].pixelPosYEnd);
-					glVertex2i(validScreenBoundaryQuads[i].pixelPosXBegin, validScreenBoundaryQuads[i].pixelPosYEnd);
+				glVertex2i(validScreenBoundaryQuads[i].pixelPosXBegin, validScreenBoundaryQuads[i].pixelPosYBegin);
+				glVertex2i(validScreenBoundaryQuads[i].pixelPosXEnd, validScreenBoundaryQuads[i].pixelPosYBegin);
+				glVertex2i(validScreenBoundaryQuads[i].pixelPosXEnd, validScreenBoundaryQuads[i].pixelPosYEnd);
+				glVertex2i(validScreenBoundaryQuads[i].pixelPosXBegin, validScreenBoundaryQuads[i].pixelPosYEnd);
 				glEnd();
 			}
 			glColor4d(1.0, 1.0, 1.0, 1.0);
@@ -1283,39 +1297,39 @@ LRESULT msgRenderWM_LBUTTONDOWN(HWND hwnd, WPARAM wparam, LPARAM lparam)
 //----------------------------------------------------------------------------------------
 LRESULT msgRenderWM_KEYUP(HWND hwnd, WPARAM wparam, LPARAM lparam)
 {
-	ISystemDeviceInterface::KeyCode keyCode;
+	/*ISystemDeviceInterface::KeyCode keyCode;
 	if(presenter.GetSystemInterface().TranslateKeyCode((unsigned int)wparam, keyCode))
 	{
 		presenter.GetSystemInterface().HandleInputKeyUp(keyCode);
-	}
+	}*/
 	return 0;
 }
 
 //----------------------------------------------------------------------------------------
 LRESULT msgRenderWM_KEYDOWN(HWND hwnd, WPARAM wparam, LPARAM lparam)
 {
-	ISystemDeviceInterface::KeyCode keyCode;
+	/*ISystemDeviceInterface::KeyCode keyCode;
 	if(presenter.GetSystemInterface().TranslateKeyCode((unsigned int)wparam, keyCode))
 	{
 		presenter.GetSystemInterface().HandleInputKeyDown(keyCode);
-	}
+	}*/
 	return 0;
 }
 
 //----------------------------------------------------------------------------------------
 //Render helper methods
 //----------------------------------------------------------------------------------------
-static void GetScrollPlanePaletteInfo(const std::vector<unsigned char>& vramData, unsigned int mappingBaseAddress, unsigned int patternBaseAddress, unsigned int planeWidth, unsigned int planeHeight, unsigned int xpos, unsigned int ypos, bool interlaceMode2Active, unsigned int& paletteRow, unsigned int& paletteIndex)
+static void GetScrollPlanePaletteInfo(UINT8* vramData, unsigned int mappingBaseAddress, unsigned int patternBaseAddress, unsigned int planeWidth, unsigned int planeHeight, unsigned int xpos, unsigned int ypos, bool interlaceMode2Active, unsigned int& paletteRow, unsigned int& paletteIndex)
 {
 	//Constants
 	const unsigned int mappingByteSize = 2;
 	const unsigned int pixelsPerPatternByte = 2;
-	unsigned int blockPixelSizeX = 8;
-	unsigned int blockPixelSizeY = (interlaceMode2Active)? 16: 8;
+	unsigned int blockPixelSizeX = 3;
+	unsigned int blockPixelSizeY = (interlaceMode2Active)? 4: 3;
 
 	//Determine the address of the mapping data to use for this layer
-	unsigned int mappingIndex = (((ypos / blockPixelSizeY) % planeHeight) * planeWidth) + ((xpos / blockPixelSizeX) % planeWidth);
-	unsigned int mappingAddress = (mappingBaseAddress + (mappingIndex * mappingByteSize)) % (unsigned int)vramData.size();
+	unsigned int mappingIndex = (((ypos >> blockPixelSizeY) % planeHeight) * planeWidth) + ((xpos >> blockPixelSizeX) % planeWidth);
+	unsigned int mappingAddress = (mappingBaseAddress + (mappingIndex * mappingByteSize)) % (unsigned int)vram_size;
 
 	//Read the mapping data
 	UINT16 mappingData = 0;
@@ -1323,9 +1337,9 @@ static void GetScrollPlanePaletteInfo(const std::vector<unsigned char>& vramData
 
 	//Determine the address of the target row in the target block
 	unsigned int patternRowNumberNoFlip = ypos % blockPixelSizeY;
-	unsigned int patternRowNumber = model.CalculatePatternDataRowNumber(patternRowNumberNoFlip, interlaceMode2Active, mappingData);
-	unsigned int patternRowDataAddress = model.CalculatePatternDataRowAddress(patternRowNumber, 0, interlaceMode2Active, mappingData);
-	patternRowDataAddress = (patternBaseAddress + patternRowDataAddress) % (unsigned int)vramData.size();
+	unsigned int patternRowNumber = CalculatePatternDataRowNumber(patternRowNumberNoFlip, interlaceMode2Active, mappingData);
+	unsigned int patternRowDataAddress = CalculatePatternDataRowAddress(patternRowNumber, 0, interlaceMode2Active, mappingData);
+	patternRowDataAddress = (patternBaseAddress + patternRowDataAddress) % (unsigned int)vram_size;
 
 	//Read the pattern data byte for the target pixel in the target block
 	bool patternHFlip = mask_get(mappingData, 11);
@@ -1340,7 +1354,7 @@ static void GetScrollPlanePaletteInfo(const std::vector<unsigned char>& vramData
 }
 
 //----------------------------------------------------------------------------------------
-static void GetScrollPlaneHScrollData(const std::vector<unsigned char>& vramData, unsigned int screenRowNumber, unsigned int hscrollDataBase, bool hscrState, bool lscrState, bool layerA, unsigned int& layerHscrollPatternDisplacement, unsigned int& layerHscrollMappingDisplacement)
+static void GetScrollPlaneHScrollData(UINT8* vramData, unsigned int screenRowNumber, unsigned int hscrollDataBase, bool hscrState, bool lscrState, bool layerA, unsigned int& layerHscrollPatternDisplacement, unsigned int& layerHscrollMappingDisplacement)
 {
 	//Calculate the address of the hscroll data to read for this line
 	unsigned int hscrollDataAddress = hscrollDataBase;
@@ -1356,7 +1370,7 @@ static void GetScrollPlaneHScrollData(const std::vector<unsigned char>& vramData
 	}
 
 	//Read the hscroll data for this line
-	unsigned int layerHscrollOffset = ((unsigned int)vramData[(hscrollDataAddress+0) % (unsigned int)vramData.size()] << 8) | (unsigned int)vramData[(hscrollDataAddress+1) % (unsigned int)vramData.size()];
+	unsigned int layerHscrollOffset = ((unsigned int)vramData[(hscrollDataAddress + 0) % (unsigned int)vram_size] << 8) | (unsigned int)vramData[(hscrollDataAddress + 1) % (unsigned int)vram_size];
 
 	//Break the hscroll data into its two component parts. The lower 4 bits represent a
 	//displacement into the 2-cell column, or in other words, the displacement of the
@@ -1399,14 +1413,14 @@ static SpriteMappingTableEntry GetSpriteMappingTableEntry(unsigned int spriteTab
 	//Calculate the address in VRAM of this sprite table entry
 	static const unsigned int spriteTableEntrySize = 8;
 	unsigned int spriteTableEntryAddress = spriteTableBaseAddress + (entryNo * spriteTableEntrySize);
-	spriteTableEntryAddress %= vramSize;
+	spriteTableEntryAddress %= vram_size;
 
 	//Read all raw data for the sprite from the sprite attribute table in VRAM
 	SpriteMappingTableEntry entry;
-	entry.rawDataWord0 = ((unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 0) << 8) | (unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 1);
-	entry.rawDataWord1 = ((unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 2) << 8) | (unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 3);
-	entry.rawDataWord2 = ((unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 4) << 8) | (unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 5);
-	entry.rawDataWord3 = ((unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 6) << 8) | (unsigned int)vram->ReadCommitted(spriteTableEntryAddress + 7);
+	entry.rawDataWord0 = (ptrVRAM[spriteTableEntryAddress + 0] << 8) | ptrVRAM[spriteTableEntryAddress + 1];
+	entry.rawDataWord1 = (ptrVRAM[spriteTableEntryAddress + 2] << 8) | ptrVRAM[spriteTableEntryAddress + 3];
+	entry.rawDataWord2 = (ptrVRAM[spriteTableEntryAddress + 4] << 8) | ptrVRAM[spriteTableEntryAddress + 5];
+	entry.rawDataWord3 = (ptrVRAM[spriteTableEntryAddress + 6] << 8) | ptrVRAM[spriteTableEntryAddress + 7];
 
 	//Decode the sprite mapping data
 	//        -----------------------------------------------------------------
@@ -1449,4 +1463,98 @@ static SpriteMappingTableEntry GetSpriteMappingTableEntry(unsigned int spriteTab
 	entry.xpos = entry.rawDataWord3;
 
 	return entry;
+}
+
+//----------------------------------------------------------------------------------------
+static unsigned int CalculatePatternDataRowAddress(unsigned int patternRowNumber, unsigned int patternCellOffset, bool interlaceMode2Active, UINT16 mappingData)
+{
+	//The address of the pattern data to read is determined by combining the number of the
+	//pattern (tile) with the row of the pattern to be read. The way the data is combined
+	//is different under interlace mode 2, where patterns are 16 pixels high instead of
+	//the usual 8 pixels. The format for pattern data address decoding is as follows when
+	//interlace mode 2 is not active:
+	//-----------------------------------------------------------------
+	//|15 |14 |13 |12 |11 |10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+	//|---------------------------------------------------------------|
+	//|              Pattern Number               |Pattern Row| 0 | 0 |
+	//-----------------------------------------------------------------
+	//When interlace mode 2 is active, the pattern data address decoding is as follows:
+	//-----------------------------------------------------------------
+	//|15 |14 |13 |12 |11 |10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+	//|---------------------------------------------------------------|
+	//|            Pattern Number             |  Pattern Row  | 0 | 0 |
+	//-----------------------------------------------------------------
+	//Note that we grab the entire mapping data block as the block number when calculating
+	//the address. This is because the resulting address is wrapped to keep it within the
+	//VRAM boundaries. Due to this wrapping, in reality only the lower 11 bits of the
+	//mapping data are effective when determining the block number, or the lower 10 bits
+	//in the case of interlace mode 2.
+	//##TODO## Test the above assertion on the TeraDrive with the larger VRAM mode active
+	static const unsigned int patternDataRowByteSize = 4;
+	const unsigned int rowsPerTile = (!interlaceMode2Active) ? 8 : 16;
+	const unsigned int blockPatternByteSize = rowsPerTile * patternDataRowByteSize;
+	unsigned int patternDataAddress = (((mappingData + patternCellOffset) * blockPatternByteSize) + (patternRowNumber * patternDataRowByteSize)) % vram_size;
+	return patternDataAddress;
+}
+
+//----------------------------------------------------------------------------------------
+static void DigitalRenderReadVscrollData(unsigned int screenColumnNumber, unsigned int layerNumber, bool vscrState, bool interlaceMode2Active, unsigned int& layerVscrollPatternDisplacement, unsigned int& layerVscrollMappingDisplacement, UINT16& vsramReadCache)
+{
+	//Calculate the address of the vscroll data to read for this block
+	static const unsigned int vscrollDataLayerCount = 2;
+	static const unsigned int vscrollDataEntrySize = 2;
+	unsigned int vscrollDataAddress = vscrState ? (screenColumnNumber * vscrollDataLayerCount * vscrollDataEntrySize) + (layerNumber * vscrollDataEntrySize) : (layerNumber * vscrollDataEntrySize);
+
+	//##NOTE## This implements what appears to be the correct behaviour for handling reads
+	//past the end of the VSRAM buffer during rendering. This can occur when horizontal
+	//scrolling is applied along with vertical scrolling, in which case the leftmost
+	//column can be reading data from a screen column of -1, wrapping around to the end of
+	//the VSRAM buffer. In this case, the last successfully read value from the VSRAM
+	//appears to be used as the read value. This also applies when performing manual reads
+	//from VSRAM externally using the data port. See data port reads from VSRAM for more
+	//info.
+	//##TODO## This needs more through hardware tests, to definitively confirm the correct
+	//behaviour.
+	if (vscrollDataAddress < 0x50)
+	{
+		//Read the vscroll data for this line. Note only the lower 10 bits are
+		//effective, or the lower 11 bits in the case of interlace mode 2, due to the
+		//scrolled address being wrapped to lie within the total field boundaries,
+		//which never exceed 128 blocks.
+		vsramReadCache = (ptrVSRAM[vscrollDataAddress + 0] << 8) | ptrVSRAM[vscrollDataAddress + 1];
+	}
+	else
+	{
+		//##FIX## This is a temporary patch until we complete our hardware testing on the
+		//behaviour of VSRAM. Hardware tests do seem to confirm that when the VSRAM read
+		//process passes into the undefined upper region of VSRAM, the returned value is
+		//the ANDed result of the last two entries in VSRAM.
+		vsramReadCache = (ptrVSRAM[0x4C + 0] << 8) | ptrVSRAM[0x4C + 1];
+		vsramReadCache &= (ptrVSRAM[0x4E + 0] << 8) | ptrVSRAM[0x4E + 1];
+	}
+
+	//Break the vscroll data into its two component parts. The format of the vscroll data
+	//varies depending on whether interlace mode 2 is active. When interlace mode 2 is not
+	//active, the vscroll data is interpreted as a 10-bit value, where the lower 3 bits
+	//represent a vertical shift on the pattern line for the selected block mapping, or in
+	//other words, the displacement of the starting row within each pattern, while the
+	//upper 7 bits represent an offset for the mapping data itself, like so:
+	//------------------------------------------
+	//| 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0  |
+	//|----------------------------------------|
+	//|    Column Shift Value     |Displacement|
+	//------------------------------------------
+	//Where interlace mode 2 is active, pattern data is 8x16 pixels, not 8x8 pixels. In
+	//this case, the vscroll data is treated as an 11-bit value, where the lower 4 bits
+	//give the row offset, and the upper 7 bits give the mapping offset, like so:
+	//---------------------------------------------
+	//|10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+	//|-------------------------------------------|
+	//|    Column Shift Value     | Displacement  |
+	//---------------------------------------------
+	//Note that the unused upper bits in the vscroll data are simply discarded, since they
+	//fall outside the maximum virtual playfield size for the mapping data. Since the
+	//virtual playfield wraps, this means they have no effect.
+	layerVscrollPatternDisplacement = interlaceMode2Active ? mask_get(vsramReadCache, 0, 4) : mask_get(vsramReadCache, 0, 3);
+	layerVscrollMappingDisplacement = interlaceMode2Active ? mask_get(vsramReadCache, 4, 7) : mask_get(vsramReadCache, 3, 7);
 }

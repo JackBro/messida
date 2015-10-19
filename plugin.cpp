@@ -29,10 +29,12 @@
 #include "debugcon.h"
 
 #include "mess_debmod.h"
-#include "registers.h"
+#include "debug.h"
 
 #include "exodus_helpers\WindowFunctions.h"
 #include "exodus_windows\vdp\PaletteView\PaletteView.h"
+#include "exodus_windows\vdp\PlaneView\PlaneView.h"
+#include "exodus_windows\vdp\resource.h"
 
 extern debugger_t debugger;
 extern running_machine *g_running_machine;
@@ -40,17 +42,7 @@ extern running_machine *g_running_machine;
 static bool plugin_inited;
 static bool dbg_started;
 
-HWND VDPRamHWnd = NULL;
 std::unordered_map<int, HWND> openedWindows;
-
-static HINSTANCE GetHInstance()
-{
-	MEMORY_BASIC_INFORMATION mbi;
-	SetLastError(ERROR_SUCCESS);
-	VirtualQuery(GetHInstance, &mbi, sizeof(mbi));
-
-	return (HINSTANCE)mbi.AllocationBase;
-}
 
 static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
 {
@@ -86,11 +78,13 @@ static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
 	return 0;
 }
 
-#define EXODUS_MAIN_MENU "Exodus/"
-#define EXODUS_VDP_DEBUG_MENU "VDP Debug/"
+#define EXODUS_MAIN_MENU "Exodus"
+#define EXODUS_VDP_DEBUG_MENU "VDP Debug"
 
 #define EXODUS_VDP_PALETTE_MENU "Palette"
 #define EXODUS_VDP_PALETTE_ID 1
+#define EXODUS_VDP_PLANE_VIEWER_MENU "Plane Viewer"
+#define EXODUS_VDP_PLANE_VIEWER_ID 2
 
 static bool check_window_opened(int id, std::unordered_map<int, HWND>::const_iterator *pair)
 {
@@ -170,7 +164,7 @@ static void install_exodus_vdp_vdp_palette_menu()
 {
 	if (dbg_started)
 	{
-		add_menu_item("Debugger/" EXODUS_MAIN_MENU EXODUS_VDP_DEBUG_MENU,
+		add_menu_item("Debugger/" EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU,
 			EXODUS_VDP_PALETTE_MENU,
 			NULL,
 			SETMENU_APP | SETMENU_CTXAPP,
@@ -183,7 +177,50 @@ static void remove_exodus_vdp_vdp_palette_menu()
 {
 	if (dbg_started)
 	{
-		del_menu_item("Debugger/" EXODUS_MAIN_MENU EXODUS_VDP_DEBUG_MENU EXODUS_VDP_PALETTE_MENU);
+		del_menu_item("Debugger/" EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU "/" EXODUS_VDP_PALETTE_MENU);
+	}
+}
+
+static bool idaapi create_exodus_vdp_plane_viewer_window(void *ud)
+{
+	std::unordered_map<int, HWND>::const_iterator found;
+	if (check_window_opened(EXODUS_VDP_PLANE_VIEWER_ID, &found))
+	{
+		SetForegroundWindow(found->second);
+		return true;
+	}
+	
+	HWND hwnd = CreateDialog(GetHInstance(), MAKEINTRESOURCE(IDD_S315_5313_PLANEVIEW), NULL, ExodusVdpPlaneViewWndProcDialog);
+
+	if (hwnd == NULL)
+	{
+		MessageBox(NULL, "Window Creation Failed!", "Error!",
+			MB_ICONEXCLAMATION | MB_OK);
+		return false;
+	}
+
+	openedWindows.emplace(EXODUS_VDP_PLANE_VIEWER_ID, hwnd);
+	return true;
+}
+
+static void install_exodus_vdp_plane_viewer_menu()
+{
+	if (dbg_started)
+	{
+		add_menu_item("Debugger/" /*EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU*/,
+			EXODUS_VDP_PLANE_VIEWER_MENU,
+			NULL,
+			SETMENU_APP | SETMENU_CTXAPP,
+			create_exodus_vdp_plane_viewer_window,
+			NULL);
+	}
+}
+
+static void remove_exodus_vdp_plane_viewer_menu()
+{
+	if (dbg_started)
+	{
+		del_menu_item("Debugger/" /*EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU "/"*/ EXODUS_VDP_PLANE_VIEWER_MENU);
 	}
 }
 
@@ -209,7 +246,7 @@ static void remove_exodus_vdp_debug_menus()
 	{
 		remove_exodus_vdp_vdp_palette_menu();
 		
-		del_menu_item("Debugger/" EXODUS_MAIN_MENU EXODUS_VDP_DEBUG_MENU);
+		del_menu_item("Debugger/" EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU);
 	}
 }
 
@@ -300,16 +337,17 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	{
 	case dbg_notification_t::dbg_process_start:
 		dbg_started = true;
-		//install_shell_vram_menu();
-		install_exodus_menus();
+		//install_exodus_menus();
 		//install_exodus_vdp_vdp_palette_menu();
+		install_exodus_vdp_plane_viewer_menu();
 		install_remove_mame_cli(true);
 		break;
 
 	case dbg_notification_t::dbg_process_exit:
-		remove_exodus_menus();
+		//remove_exodus_menus();
+
 		//remove_exodus_vdp_vdp_palette_menu();
-		//remove_shell_vram_menu();
+		remove_exodus_vdp_plane_viewer_menu();
 		install_remove_mame_cli(false);
 		dbg_started = false;
 		break;

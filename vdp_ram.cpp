@@ -25,8 +25,8 @@ COLORREF *MemBMPBits;
 int VDPRamPal, VDPRamTile;
 #define VDP_RAM_VCOUNT 20
 
-const asize_t vram_size = 0x10000;
-const asize_t cram_size = 0x80;
+const asize_t vram_size_ = 0x10000;
+const asize_t cram_size_ = 0x80;
 
 static size_t mess_vdp_read(const char *region, void *buffer, size_t size)
 {
@@ -64,48 +64,48 @@ static size_t mess_vdp_write(const char *region, const void *buffer, size_t size
 
 static void dump_vram(FILE *fp)
 {
-	UINT8 *buf = (UINT8 *)malloc(vram_size);
-	mess_vdp_read("m_vram", buf, vram_size);
-	ewrite(fp, buf, vram_size);
+	UINT8 *buf = (UINT8 *)malloc(vram_size_);
+	mess_vdp_read("m_vram", buf, vram_size_);
+	ewrite(fp, buf, vram_size_);
 	free(buf);
 }
 
 static void dump_vram()
 {
 	if (VRam == NULL)
-		VRam = (UINT8*)malloc(vram_size);
-	mess_vdp_read("m_vram", VRam, vram_size);
+		VRam = (UINT8*)malloc(vram_size_);
+	mess_vdp_read("m_vram", VRam, vram_size_);
 }
 
 static void load_vram(FILE *fp)
 {
-	UINT8 *buf = (UINT8 *)malloc(vram_size);
-	eread(fp, buf, vram_size);
+	UINT8 *buf = (UINT8 *)malloc(vram_size_);
+	eread(fp, buf, vram_size_);
 	mess_vdp_write("m_vram", buf, vram_size);
 	free(buf);
 }
 
 static void dump_cram(FILE *fp)
 {
-	UINT8 *buf = (UINT8 *)malloc(cram_size);
+	/*UINT8 *buf = (UINT8 *)malloc(cram_size);
 	mess_vdp_read("m_cram", buf, cram_size);
 	ewrite(fp, buf, cram_size);
-	free(buf);
+	free(buf);*/
 }
 
 static void dump_cram()
 {
-	if (CRam == NULL)
+	/*if (CRam == NULL)
 		CRam = (UINT8*)malloc(cram_size);
-	mess_vdp_read("m_cram", CRam, cram_size);
+	mess_vdp_read("m_cram", CRam, cram_size);*/
 }
 
 static void load_cram(FILE *fp)
 {
-	UINT8 *buf = (UINT8 *)malloc(cram_size);
+	/*UINT8 *buf = (UINT8 *)malloc(cram_size);
 	eread(fp, buf, cram_size);
 	mess_vdp_write("m_cram", buf, cram_size);
-	free(buf);
+	free(buf);*/
 }
 
 inline static COLORREF get_color(UINT8 *cram, int index)
@@ -138,7 +138,7 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		VDPRamMemDC = CreateCompatibleDC(hDC);
 		MemBMPi.bmiHeader.biSize = sizeof(MemBMPi.bmiHeader);
 		MemBMPi.bmiHeader.biWidth = 8 * 16;
-		MemBMPi.bmiHeader.biHeight = (vram_size / 32 / 16) * 8 + 8;
+		MemBMPi.bmiHeader.biHeight = (vram_size_ / 32 / 16) * 8 + 8;
 		MemBMPi.bmiHeader.biBitCount = 32;
 		MemBMPi.bmiHeader.biPlanes = 1;
 		MemBMPi.bmiHeader.biCompression = BI_RGB;
@@ -182,7 +182,7 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 		SetWindowPos(hDlg, NULL, r.left, r.top, NULL, NULL, SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
 		SetWindowPos(GetDlgItem(hDlg, IDC_SCROLLBAR1), NULL, 5 + 16 * 16, 5 + 16 * 4 + 5, 16, 16 * VDP_RAM_VCOUNT, SWP_NOZORDER | SWP_SHOWWINDOW);
-		SetScrollRange(GetDlgItem(hDlg, IDC_SCROLLBAR1), SB_CTL, 0, vram_size / 0x200 - VDP_RAM_VCOUNT, TRUE);
+		SetScrollRange(GetDlgItem(hDlg, IDC_SCROLLBAR1), SB_CTL, 0, vram_size_ / 0x200 - VDP_RAM_VCOUNT, TRUE);
 		return true;
 	}	break;
 
@@ -253,7 +253,7 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case SB_RIGHT:	  // Scroll to far right.
-			CurPos = vram_size / 0x200 - VDP_RAM_VCOUNT;
+			CurPos = vram_size_ / 0x200 - VDP_RAM_VCOUNT;
 			break;
 
 		case SB_ENDSCROLL:   // End scroll.
@@ -265,7 +265,7 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case SB_LINERIGHT:   // Scroll right.
-			if (CurPos < vram_size / 0x200 - VDP_RAM_VCOUNT)
+			if (CurPos < vram_size_ / 0x200 - VDP_RAM_VCOUNT)
 				CurPos++;
 			break;
 
@@ -278,8 +278,8 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case SB_PAGERIGHT:	  // Scroll one page righ
 		{
 			CurPos += VDP_RAM_VCOUNT;
-			if (CurPos >= vram_size / 0x200 - VDP_RAM_VCOUNT)
-				CurPos = vram_size / 0x200 - VDP_RAM_VCOUNT - 1;
+			if (CurPos >= vram_size_ / 0x200 - VDP_RAM_VCOUNT)
+				CurPos = vram_size_ / 0x200 - VDP_RAM_VCOUNT - 1;
 		} break;
 
 		case SB_THUMBTRACK:   // Drag scroll box to specified position. nPos is the
@@ -310,7 +310,7 @@ LRESULT CALLBACK VDPRamProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		BeginPaint(hDlg, &ps);
 		SelectObject(VDPRamMemDC, VDPRamLastBMP);
 		int i, j, x, y, xx;
-		for (i = 0; i < vram_size; ++i)
+		for (i = 0; i < vram_size_; ++i)
 		{
 			x = ((i >> 5) & 0xf) << 3;
 			y = ((i >> 9) << 3);

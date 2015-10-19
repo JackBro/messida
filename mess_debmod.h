@@ -1,8 +1,6 @@
 #ifndef __DEBUGGER_MODULE__
 #define __DEBUGGER_MODULE__
 
-#pragma once
-
 //
 //
 //      This is the base debmod_t class definition

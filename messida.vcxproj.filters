@@ -8,13 +8,13 @@
     <ClCompile Include="dialog_utils.cpp" />
     <ClCompile Include="nargv.c" />
     <ClCompile Include="plugin.cpp" />
-    <ClCompile Include="vdp_ram.cpp">
-      <Filter>gens</Filter>
-    </ClCompile>
     <ClCompile Include="exodus_windows\vdp\PaletteView\PaletteView.cpp">
       <Filter>exodus_windows\vdp\PaletteView</Filter>
     </ClCompile>
     <ClCompile Include="exodus_windows\vdp\PlaneView\PlaneView.cpp">
+      <Filter>exodus_windows\vdp\PlaneView</Filter>
+    </ClCompile>
+    <ClCompile Include="exodus_helpers\WindowFunctions.cpp">
       <Filter>exodus_helpers</Filter>
     </ClCompile>
   </ItemGroup>
@@ -25,21 +25,17 @@
     <ClInclude Include="exodus_windows\vdp\resource.h">
       <Filter>exodus_windows\vdp</Filter>
     </ClInclude>
-    <ClInclude Include="vdp_ram.h">
-      <Filter>gens</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>gens</Filter>
-    </ClInclude>
     <ClInclude Include="exodus_windows\vdp\PaletteView\PaletteView.h">
       <Filter>exodus_windows\vdp\PaletteView</Filter>
     </ClInclude>
     <ClInclude Include="exodus_windows\vdp\PlaneView\PlaneView.h">
+      <Filter>exodus_windows\vdp\PlaneView</Filter>
+    </ClInclude>
+    <ClInclude Include="exodus_helpers\WindowFunctions.h">
       <Filter>exodus_helpers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="messida.rc" />
     <ResourceCompile Include="exodus_windows\vdp\315-5313Menus.rc">
       <Filter>exodus_windows\vdp</Filter>
     </ResourceCompile>
@@ -54,14 +50,19 @@
     <Filter Include="exodus_windows\vdp">
       <UniqueIdentifier>{976a13d6-c5a3-4b8c-9cb9-b49ed2eb74d5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="exodus_helpers">
-      <UniqueIdentifier>{42c3b340-a7c6-4966-92ed-1c9f8ffc1665}</UniqueIdentifier>
-    </Filter>
     <Filter Include="exodus_windows\vdp\PaletteView">
       <UniqueIdentifier>{d2f1aa8b-2690-4884-8b26-0343ad9c64ee}</UniqueIdentifier>
     </Filter>
     <Filter Include="exodus_windows\vdp\PlaneView">
       <UniqueIdentifier>{4e519a64-82a4-46b6-a6b0-ebe94c7da9c6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="exodus_helpers">
+      <UniqueIdentifier>{8efbaaf3-180e-4b2a-8543-ba5d10beca5d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="exodus_helpers\WindowFunctions.inl">
+      <Filter>exodus_helpers</Filter>
+    </None>
   </ItemGroup>
 </Project>

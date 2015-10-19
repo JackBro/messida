@@ -1,23 +1,33 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include <Windows.h>
+
 #include "registers.h"
 
-static void dump_cram();
-static void dump_vram();
+void dump_cram();
+void dump_vram();
+void dump_vsram();
 
-static UINT8 *ptrVRAM = NULL;
-static UINT8 *ptrCRAM = NULL;
+extern size_t cram_size;
+extern size_t vram_size;
+extern size_t vsram_size;
+extern UINT8 *ptrVRAM;
+extern UINT8 *ptrCRAM;
+extern UINT8 *ptrVSRAM;
 
-static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt = 1);
-static UINT32 mask_get(UINT32 data, UINT8 bit_idx, UINT8 bits_cnt = 1);
+UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt = 1);
+inline static UINT32 mask_get(UINT32 data, UINT8 bit_idx, UINT8 bits_cnt = 1)
+{
+	return (data >> bit_idx) & ((((1 << (bits_cnt - 1)) - 1) << 1) | 0x01);
+}
 
-inline static COLORREF get_color(UINT8 *cram, int index);;
-static UINT16 get_vdp_reg_value(register_t idx, UINT16 *region, size_t real_size);
-static size_t mess_vdp_read(const char *region, void *buffer, size_t size);
+COLORREF get_color(UINT8 *cram, int index);
+UINT16 get_vdp_reg_value(register_t idx, UINT16 *region, size_t real_size);
+size_t mess_vdp_read(const char *region, void* &buffer, size_t &orig_size);
 
 void *find_region(const char *region, char delim, size_t *size);
 
-static HINSTANCE GetHInstance();
+HINSTANCE GetHInstance();
 
 #endif

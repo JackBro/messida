@@ -147,3 +147,31 @@ HGLRC CreateOpenGLWindow(HWND hwnd)
 	ReleaseDC(hwnd, deviceContext);
 	return renderingContext;
 }
+
+//----------------------------------------------------------------------------------------
+void DPIGetScreenSettings(int& dpiX, int& dpiY)
+{
+	//Obtain the current screen DPI settings
+	dpiX = 96;
+	dpiY = 96;
+	HDC hdc = GetDC(NULL);
+	if (hdc)
+	{
+		dpiX = GetDeviceCaps(hdc, LOGPIXELSX);
+		dpiY = GetDeviceCaps(hdc, LOGPIXELSY);
+		ReleaseDC(NULL, hdc);
+	}
+}
+
+//----------------------------------------------------------------------------------------
+void DPIGetScreenScaleFactors(float& dpiScaleX, float& dpiScaleY)
+{
+	//Obtain the current screen DPI settings
+	int dpiX;
+	int dpiY;
+	DPIGetScreenSettings(dpiX, dpiY);
+
+	//Calculate a scale value for pixel values based on the current screen DPI settings
+	dpiScaleX = (float)dpiX / 96.0f;
+	dpiScaleY = (float)dpiY / 96.0f;
+}
