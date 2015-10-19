@@ -136,6 +136,7 @@
     <ClCompile Include="..\..\src\version.c" />
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="dialog_utils.cpp" />
+    <ClCompile Include="exodus_helpers\ViewBase.cpp" />
     <ClCompile Include="exodus_helpers\WindowFunctions.cpp" />
     <ClCompile Include="exodus_windows\vdp\PaletteView\PaletteView.cpp" />
     <ClCompile Include="exodus_windows\vdp\PlaneView\PlaneView.cpp" />
@@ -143,6 +144,7 @@
     <ClCompile Include="plugin.cpp" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="dialog_utils.h" />
+    <ClInclude Include="exodus_helpers\ViewBase.h" />
     <ClInclude Include="exodus_helpers\WindowFunctions.h" />
     <ClInclude Include="exodus_windows\vdp\PaletteView\PaletteView.h" />
     <ClInclude Include="exodus_windows\vdp\PlaneView\PlaneView.h" />

@@ -21,10 +21,10 @@
 #include "vdp_ram.h"
 
 #undef malloc
+#undef free
 
 extern int utf8_main(int argc, char *argv[]);
 
-extern HWND VDPRamHWnd;
 extern std::unordered_map<int, HWND> openedWindows;
 
 codemap_t g_codemap;
@@ -381,6 +381,12 @@ static void finish_execution()
 		SendMessage(pair.second, WM_CLOSE, 0, 0);
 	});
 	openedWindows.clear();
+	free(ptrCRAM);
+	ptrCRAM = NULL;
+	free(ptrVRAM);
+	ptrVRAM = NULL;
+	free(ptrVSRAM);
+	ptrVSRAM = NULL;
 
 	if (mess_thread != NULL)
 	{

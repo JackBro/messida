@@ -82,11 +82,9 @@ static int idaapi hook_idp(void *user_data, int notification_code, va_list va)
 #define EXODUS_VDP_DEBUG_MENU "VDP Debug"
 
 #define EXODUS_VDP_PALETTE_MENU "Palette"
-#define EXODUS_VDP_PALETTE_ID 1
 #define EXODUS_VDP_PLANE_VIEWER_MENU "Plane Viewer"
-#define EXODUS_VDP_PLANE_VIEWER_ID 2
 
-static bool check_window_opened(int id, std::unordered_map<int, HWND>::const_iterator *pair)
+bool check_window_opened(int id, std::unordered_map<int, HWND>::const_iterator *pair)
 {
 	std::unordered_map<int, HWND>::const_iterator found = openedWindows.find(id);
 	
@@ -123,12 +121,14 @@ static bool idaapi create_exodus_vdp_palette_window(void *ud)
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
 	wc.hInstance = GetHInstance();
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hIcon = NULL;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wc.lpszMenuName = NULL;
 	wc.lpszClassName = szClassName;
-	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hIconSm = NULL;
+
+	UnregisterClass(wc.lpszClassName, wc.hInstance);
 
 	if (!RegisterClassEx(&wc))
 	{
@@ -139,10 +139,10 @@ static bool idaapi create_exodus_vdp_palette_window(void *ud)
 
 	// Step 2: Creating the Window
 	hwnd = CreateWindowEx(
-		0,
+		(WS_EX_TOOLWINDOW | WS_EX_STATICEDGE | WS_EX_APPWINDOW),
 		szClassName,
 		"Palette",
-		(WS_THICKFRAME | WS_VISIBLE | WS_CLIPCHILDREN),
+		(DS_SETFONT | DS_3DLOOK | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME),
 		CW_USEDEFAULT, CW_USEDEFAULT, width, height + DPIScaleHeight(30),
 		NULL, NULL, wc.hInstance, NULL);
 
@@ -164,7 +164,7 @@ static void install_exodus_vdp_vdp_palette_menu()
 {
 	if (dbg_started)
 	{
-		add_menu_item("Debugger/" EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU,
+		add_menu_item("Debugger/" /*EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU*/,
 			EXODUS_VDP_PALETTE_MENU,
 			NULL,
 			SETMENU_APP | SETMENU_CTXAPP,
@@ -177,7 +177,7 @@ static void remove_exodus_vdp_vdp_palette_menu()
 {
 	if (dbg_started)
 	{
-		del_menu_item("Debugger/" EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU "/" EXODUS_VDP_PALETTE_MENU);
+		del_menu_item("Debugger/" /*EXODUS_MAIN_MENU "/" EXODUS_VDP_DEBUG_MENU "/"*/ EXODUS_VDP_PALETTE_MENU);
 	}
 }
 
@@ -200,6 +200,8 @@ static bool idaapi create_exodus_vdp_plane_viewer_window(void *ud)
 	}
 
 	openedWindows.emplace(EXODUS_VDP_PLANE_VIEWER_ID, hwnd);
+	UpdateWindow(hwnd);
+
 	return true;
 }
 
@@ -338,7 +340,7 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	case dbg_notification_t::dbg_process_start:
 		dbg_started = true;
 		//install_exodus_menus();
-		//install_exodus_vdp_vdp_palette_menu();
+		install_exodus_vdp_vdp_palette_menu();
 		install_exodus_vdp_plane_viewer_menu();
 		install_remove_mame_cli(true);
 		break;
@@ -346,7 +348,7 @@ static int idaapi hook_dbg(void *user_data, int notification_code, va_list va)
 	case dbg_notification_t::dbg_process_exit:
 		//remove_exodus_menus();
 
-		//remove_exodus_vdp_vdp_palette_menu();
+		remove_exodus_vdp_vdp_palette_menu();
 		remove_exodus_vdp_plane_viewer_menu();
 		install_remove_mame_cli(false);
 		dbg_started = false;
@@ -380,7 +382,7 @@ static int idaapi idp_to_dbg_reg(int idp_reg)
 		reg_idx = R_A0 + (idp_reg % 8);
 	else if (idp_reg == 91)
 		reg_idx = R_PC;
-	else if (idp_reg == 93)
+	else if (idp_reg == 92 || idp_reg == 93)
 		reg_idx = R_SR;
 	else if (idp_reg == 94)
 		reg_idx = R_USP;

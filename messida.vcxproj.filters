@@ -17,6 +17,9 @@
     <ClCompile Include="exodus_helpers\WindowFunctions.cpp">
       <Filter>exodus_helpers</Filter>
     </ClCompile>
+    <ClCompile Include="exodus_helpers\ViewBase.cpp">
+      <Filter>exodus_helpers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="debug.h" />
@@ -32,6 +35,9 @@
       <Filter>exodus_windows\vdp\PlaneView</Filter>
     </ClInclude>
     <ClInclude Include="exodus_helpers\WindowFunctions.h">
+      <Filter>exodus_helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="exodus_helpers\ViewBase.h">
       <Filter>exodus_helpers</Filter>
     </ClInclude>
   </ItemGroup>

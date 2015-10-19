@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 
+#define EXODUS_VDP_PLANE_VIEWER_ID 2
 INT_PTR CALLBACK ExodusVdpPlaneViewWndProcDialog(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
 //Enumerations

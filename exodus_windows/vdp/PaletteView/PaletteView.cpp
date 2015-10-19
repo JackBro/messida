@@ -6,6 +6,8 @@
 
 #include "..\..\..\debug.h"
 
+extern std::unordered_map<int, HWND> openedWindows;
+
 // Event handlers
 LRESULT msgWM_CREATE(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgWM_PAINT(HWND hwnd, WPARAM wParam, LPARAM lParam);
@@ -138,9 +140,12 @@ LRESULT msgWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 
 LRESULT msgWM_CLOSE(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
-	free(ptrCRAM);
 	KillTimer(hwnd, 1);
 	DestroyWindow(hwnd);
+
+	std::unordered_map<int, HWND>::const_iterator pair;
+	check_window_opened(EXODUS_VDP_PALETTE_ID, &pair);
+	openedWindows.erase(pair);
 
 	return 0;
 }

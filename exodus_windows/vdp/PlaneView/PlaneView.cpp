@@ -3,9 +3,13 @@
 
 #include "..\..\..\debug.h"
 #include "..\..\..\exodus_helpers\WindowFunctions.h"
+#include "..\..\..\exodus_helpers\ViewBase.h"
+
 
 #include <vector>
 #include <set>
+
+extern std::unordered_map<int, HWND> openedWindows;
 
 //Event handlers
 INT_PTR msgWM_INITDIALOG(HWND hwnd, WPARAM wParam, LPARAM lParam);
@@ -24,8 +28,6 @@ LRESULT msgRenderWM_CREATE(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgRenderWM_DESTROY(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgRenderWM_LBUTTONDOWN(HWND hwnd, WPARAM wParam, LPARAM lParam);
-LRESULT msgRenderWM_KEYUP(HWND hwnd, WPARAM wParam, LPARAM lParam);
-LRESULT msgRenderWM_KEYDOWN(HWND hwnd, WPARAM wParam, LPARAM lParam);
 
 static SpriteMappingTableEntry GetSpriteMappingTableEntry(unsigned int spriteTableBaseAddress, unsigned int entryNo);
 static void GetScrollPlanePaletteInfo(UINT8* vramData, unsigned int mappingBaseAddress, unsigned int patternBaseAddress, unsigned int planeWidth, unsigned int planeHeight, unsigned int xpos, unsigned int ypos, bool interlaceMode2Active, unsigned int& paletteRow, unsigned int& paletteIndex);
@@ -75,13 +77,12 @@ unsigned int layerBPatternBase;
 unsigned int windowPatternBase;
 unsigned int spritePatternBase;
 
-bool needsUpdate;
-
 //----------------------------------------------------------------------------------------
 //Member window procedure
 //----------------------------------------------------------------------------------------
 INT_PTR CALLBACK ExodusVdpPlaneViewWndProcDialog(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+	WndProcDialogImplementSaveFieldWhenLostFocus(hwnd, msg, wparam, lparam);
 	switch(msg)
 	{
 	case WM_INITDIALOG:
@@ -92,10 +93,10 @@ INT_PTR CALLBACK ExodusVdpPlaneViewWndProcDialog(HWND hwnd, UINT msg, WPARAM wpa
 		return msgWM_HSCROLL(hwnd, wparam, lparam);
 	case WM_VSCROLL:
 		return msgWM_VSCROLL(hwnd, wparam, lparam);
-	case WM_DESTROY:
+	case WM_CLOSE:
 		return msgWM_CLOSE(hwnd, wparam, lparam);
 	}
-	return DefWindowProc(hwnd, msg, wparam, lparam);
+	return FALSE;
 }
 
 //----------------------------------------------------------------------------------------
@@ -252,6 +253,10 @@ INT_PTR msgWM_CLOSE(HWND hwnd, WPARAM wParam, LPARAM lParam)
 	//from handling this WM_DESTROY message.
 	DestroyWindow(hwndRender);
 	hwndRender = NULL;
+
+	std::unordered_map<int, HWND>::const_iterator pair;
+	check_window_opened(EXODUS_VDP_PLANE_VIEWER_ID, &pair);
+	openedWindows.erase(pair);
 
 	return FALSE;
 }
@@ -565,17 +570,10 @@ LRESULT WndProcRender(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		return msgRenderWM_CREATE(hwnd, wparam, lparam);
 	case WM_DESTROY:
 		return msgRenderWM_DESTROY(hwnd, wparam, lparam);
-	case WM_PAINT:
-		needsUpdate = true;
-		break;
 	case WM_TIMER:
 		return msgRenderWM_TIMER(hwnd, wparam, lparam);
 	case WM_LBUTTONDOWN:
 		return msgRenderWM_LBUTTONDOWN(hwnd, wparam, lparam);
-	case WM_KEYUP:
-		return msgRenderWM_KEYUP(hwnd, wparam, lparam);
-	case WM_KEYDOWN:
-		return msgRenderWM_KEYDOWN(hwnd, wparam, lparam);
 	}
 	return DefWindowProc(hwnd, msg, wparam, lparam);
 }
@@ -941,7 +939,7 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 				}
 
 				//Decode the colour for the target palette entry
-				COLORREF color = get_color(ptrCRAM, paletteRow + paletteIndex * 16);
+				COLORREF color = get_color(ptrCRAM, paletteIndex + paletteRow * 16);
 				colorR = GetRValue(color);
 				colorG = GetGValue(color);
 				colorB = GetBValue(color);
@@ -1018,7 +1016,7 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 					}
 
 					//Decode the colour for the target palette entry
-					COLORREF color = get_color(ptrCRAM, paletteRow + paletteIndex * 16);
+					COLORREF color = get_color(ptrCRAM, paletteIndex + paletteRow * 16);
 					unsigned char colorR = GetRValue(color);
 					unsigned char colorG = GetGValue(color);
 					unsigned char colorB = GetBValue(color);
@@ -1219,14 +1217,7 @@ LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
 	HDC hdc = GetDC(hwnd);
 	if (hdc != NULL)
 	{
-		bool madeCurrent = true;
-		if (needsUpdate)
-		{
-			madeCurrent = (wglMakeCurrent(hdc, glrc) != FALSE);
-			needsUpdate = false;
-		}
-
-		if ((glrc != NULL) && madeCurrent)
+		if ((glrc != NULL) && ((wglGetCurrentContext() == glrc) || (wglMakeCurrent(hdc, glrc) != FALSE)))
 		{
 			glMatrixMode(GL_MODELVIEW);
 			glLoadIdentity();
@@ -1295,28 +1286,6 @@ LRESULT msgRenderWM_LBUTTONDOWN(HWND hwnd, WPARAM wparam, LPARAM lparam)
 }
 
 //----------------------------------------------------------------------------------------
-LRESULT msgRenderWM_KEYUP(HWND hwnd, WPARAM wparam, LPARAM lparam)
-{
-	/*ISystemDeviceInterface::KeyCode keyCode;
-	if(presenter.GetSystemInterface().TranslateKeyCode((unsigned int)wparam, keyCode))
-	{
-		presenter.GetSystemInterface().HandleInputKeyUp(keyCode);
-	}*/
-	return 0;
-}
-
-//----------------------------------------------------------------------------------------
-LRESULT msgRenderWM_KEYDOWN(HWND hwnd, WPARAM wparam, LPARAM lparam)
-{
-	/*ISystemDeviceInterface::KeyCode keyCode;
-	if(presenter.GetSystemInterface().TranslateKeyCode((unsigned int)wparam, keyCode))
-	{
-		presenter.GetSystemInterface().HandleInputKeyDown(keyCode);
-	}*/
-	return 0;
-}
-
-//----------------------------------------------------------------------------------------
 //Render helper methods
 //----------------------------------------------------------------------------------------
 static void GetScrollPlanePaletteInfo(UINT8* vramData, unsigned int mappingBaseAddress, unsigned int patternBaseAddress, unsigned int planeWidth, unsigned int planeHeight, unsigned int xpos, unsigned int ypos, bool interlaceMode2Active, unsigned int& paletteRow, unsigned int& paletteIndex)
@@ -1324,11 +1293,11 @@ static void GetScrollPlanePaletteInfo(UINT8* vramData, unsigned int mappingBaseA
 	//Constants
 	const unsigned int mappingByteSize = 2;
 	const unsigned int pixelsPerPatternByte = 2;
-	unsigned int blockPixelSizeX = 3;
-	unsigned int blockPixelSizeY = (interlaceMode2Active)? 4: 3;
+	unsigned int blockPixelSizeX = 8;
+	unsigned int blockPixelSizeY = (interlaceMode2Active) ? 16 : 8;
 
 	//Determine the address of the mapping data to use for this layer
-	unsigned int mappingIndex = (((ypos >> blockPixelSizeY) % planeHeight) * planeWidth) + ((xpos >> blockPixelSizeX) % planeWidth);
+	unsigned int mappingIndex = (((ypos / blockPixelSizeY) % planeHeight) * planeWidth) + ((xpos / blockPixelSizeX) % planeWidth);
 	unsigned int mappingAddress = (mappingBaseAddress + (mappingIndex * mappingByteSize)) % (unsigned int)vram_size;
 
 	//Read the mapping data

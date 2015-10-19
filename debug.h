@@ -2,6 +2,7 @@
 #define DEBUG_H
 
 #include <Windows.h>
+#include <unordered_map>
 
 #include "registers.h"
 
@@ -29,5 +30,6 @@ size_t mess_vdp_read(const char *region, void* &buffer, size_t &orig_size);
 void *find_region(const char *region, char delim, size_t *size);
 
 HINSTANCE GetHInstance();
+bool check_window_opened(int id, std::unordered_map<int, HWND>::const_iterator *pair);
 
 #endif
