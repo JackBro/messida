@@ -12,7 +12,7 @@
 // A copy of the GPL 2.0 should have been included with the program.
 // If not, see http ://www.gnu.org/licenses/
 
-#define VERSION "1.5.3"
+#define VERSION "1.6.0 Test 1"
 
 #include <Windows.h>
 #include <unordered_map>
