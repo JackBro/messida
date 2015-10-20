@@ -29,6 +29,16 @@ LRESULT msgRenderWM_DESTROY(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgRenderWM_TIMER(HWND hwnd, WPARAM wParam, LPARAM lParam);
 LRESULT msgRenderWM_LBUTTONDOWN(HWND hwnd, WPARAM wParam, LPARAM lParam);
 
+//Pixel info dialog window procedure
+INT_PTR CALLBACK WndProcPixelInfo(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
+
+//Pixel info dialog event handlers
+INT_PTR msgPixelInfoWM_INITDIALOG(HWND hwnd, WPARAM wParam, LPARAM lParam);
+INT_PTR msgPixelInfoWM_TIMER(HWND hwnd, WPARAM wParam, LPARAM lParam);
+
+void HidePixelInfoWindow();
+
+
 static SpriteMappingTableEntry GetSpriteMappingTableEntry(unsigned int spriteTableBaseAddress, unsigned int entryNo);
 static void GetScrollPlanePaletteInfo(UINT8* vramData, unsigned int mappingBaseAddress, unsigned int patternBaseAddress, unsigned int planeWidth, unsigned int planeHeight, unsigned int xpos, unsigned int ypos, bool interlaceMode2Active, unsigned int& paletteRow, unsigned int& paletteIndex);
 static unsigned int CalculatePatternDataRowNumber(unsigned int patternRowNumberNoFlip, bool interlaceMode2Active, UINT16 mappingData);
@@ -46,6 +56,7 @@ unsigned int currentControlFocus;
 SelectedLayer selectedLayer;
 bool displayScreen;
 bool spriteBoundaries;
+bool pixelInfoEnabled;
 
 bool layerAScrollPlaneManual;
 unsigned int layerAScrollPlaneWidth;
@@ -76,6 +87,18 @@ unsigned int layerAPatternBase;
 unsigned int layerBPatternBase;
 unsigned int windowPatternBase;
 unsigned int spritePatternBase;
+
+HWND hwndPixelInfo;
+bool pixelInfoVisible;
+
+static size_t real_size;
+static UINT16 *ptrRegs;
+
+static const unsigned int imageBufferWidth = 512;
+static const unsigned int imageBufferHeight = 512;
+static const unsigned int imageBufferPlanes = 3;
+
+ImageBufferInfo imageBufferInfo[imageBufferPlanes][imageBufferHeight * imageBufferWidth];
 
 //----------------------------------------------------------------------------------------
 //Member window procedure
@@ -111,6 +134,7 @@ INT_PTR msgWM_INITDIALOG(HWND hwnd, WPARAM wparam, LPARAM lparam)
 	selectedLayer = SELECTEDLAYER_LAYERA;
 	displayScreen = true;
 	spriteBoundaries = true;
+	pixelInfoEnabled = false;
 	layerAScrollPlaneManual = false;
 	layerBScrollPlaneManual = false;
 	windowScrollPlaneManual = false;
@@ -199,6 +223,9 @@ INT_PTR msgWM_INITDIALOG(HWND hwnd, WPARAM wparam, LPARAM lparam)
 	ShowWindow(hwndRender, SW_SHOWNORMAL);
 	UpdateWindow(hwndRender);
 
+	//Create the popup pixel info viewer window
+	hwndPixelInfo = CreateDialogParam(GetHInstance(), MAKEINTRESOURCE(IDD_VDP_IMAGE_PIXELINFO), hwndRender, WndProcPixelInfo, (LPARAM)false);
+
 	//Set the window controls to their default state
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_LAYERA, (selectedLayer == SELECTEDLAYER_LAYERA)? BST_CHECKED: BST_UNCHECKED);
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_LAYERB, (selectedLayer == SELECTEDLAYER_LAYERB)? BST_CHECKED: BST_UNCHECKED);
@@ -206,6 +233,7 @@ INT_PTR msgWM_INITDIALOG(HWND hwnd, WPARAM wparam, LPARAM lparam)
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_LAYERSPRITES, (selectedLayer == SELECTEDLAYER_SPRITES)? BST_CHECKED: BST_UNCHECKED);
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_DISPLAYSCREEN, (displayScreen)? BST_CHECKED: BST_UNCHECKED);
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_DISPLAYSPRITEBOUNDARIES, (spriteBoundaries)? BST_CHECKED: BST_UNCHECKED);
+	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_PIXELINFO, (pixelInfoEnabled) ? BST_CHECKED : BST_UNCHECKED);
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_PLANESIZELAYERAMANUAL, (layerAScrollPlaneManual)? BST_CHECKED: BST_UNCHECKED);
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_PLANESIZELAYERBMANUAL, (layerBScrollPlaneManual)? BST_CHECKED: BST_UNCHECKED);
 	CheckDlgButton(hwnd, IDC_S315_5313_PLANEVIEW_PLANESIZEWINDOWMANUAL, (windowScrollPlaneManual)? BST_CHECKED: BST_UNCHECKED);
@@ -286,6 +314,9 @@ INT_PTR msgWM_COMMAND(HWND hwnd, WPARAM wparam, LPARAM lparam)
 			break;
 		case IDC_S315_5313_PLANEVIEW_DISPLAYSPRITEBOUNDARIES:
 			spriteBoundaries = IsDlgButtonChecked(hwnd, controlID) == BST_CHECKED;
+			break;
+		case IDC_S315_5313_PLANEVIEW_PIXELINFO:
+			pixelInfoEnabled = IsDlgButtonChecked(hwnd, controlID) == BST_CHECKED;
 			break;
 		case IDC_S315_5313_PLANEVIEW_PLANESIZELAYERAMANUAL:
 			layerAScrollPlaneManual = IsDlgButtonChecked(hwnd, controlID) == BST_CHECKED;
@@ -1283,6 +1314,194 @@ LRESULT msgRenderWM_LBUTTONDOWN(HWND hwnd, WPARAM wparam, LPARAM lparam)
 {
 	SetFocus(hwnd);
 	return 0;
+}
+
+//----------------------------------------------------------------------------------------
+//Details dialog window procedure
+//----------------------------------------------------------------------------------------
+INT_PTR CALLBACK WndProcPixelInfo(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	switch (msg)
+	{
+	case WM_INITDIALOG:
+		return msgPixelInfoWM_INITDIALOG(hwnd, wparam, lparam);
+	case WM_TIMER:
+		return msgPixelInfoWM_TIMER(hwnd, wparam, lparam);
+	}
+	return FALSE;
+}
+
+//----------------------------------------------------------------------------------------
+//Details dialog event handlers
+//----------------------------------------------------------------------------------------
+INT_PTR msgPixelInfoWM_INITDIALOG(HWND hwnd, WPARAM wparam, LPARAM lparam)
+{
+	SetTimer(hwnd, 1, 1000 / 15, NULL);
+	return TRUE;
+}
+
+//----------------------------------------------------------------------------------------
+INT_PTR msgPixelInfoWM_TIMER(HWND hwnd, WPARAM wparam, LPARAM lparam)
+{
+	//If the pixel info window isn't currently visible, abort any further processing.
+	if (!pixelInfoVisible)
+	{
+		return TRUE;
+	}
+
+	//If full image buffer info has been disabled on the VDP core, hide the pixel info
+	//window, and abort any further processing.
+	if (!pixelInfoEnabled)
+	{
+		HidePixelInfoWindow();
+		return TRUE;
+	}
+
+	//Determine the index of the current image plane that is being used for display
+	unsigned int displayingImageBufferPlane = (int)selectedLayer;
+
+	//Retrieve info for the target pixel
+	unsigned int index = (pixelInfoTargetBufferPosY * imageBufferWidth) + pixelInfoTargetBufferPosX;
+	const ImageBufferInfo* pixelInfo = &imageBufferInfo[displayingImageBufferPlane][index];
+
+
+	if (pixelInfo == 0)
+	{
+		return TRUE;
+	}
+
+	//Retrieve source-specific settings for this pixel info
+	std::string pixelSourceString;
+	bool mappingDataPresent = false;
+	bool spriteDataPresent = false;
+	switch (pixelInfo->pixelSource)
+	{
+	case PixelSource::Sprite:
+		pixelSourceString = "Sprite";
+		mappingDataPresent = true;
+		spriteDataPresent = true;
+		break;
+	case PixelSource::LayerA:
+		pixelSourceString = "Layer A";
+		mappingDataPresent = true;
+		break;
+	case PixelSource::LayerB:
+		pixelSourceString = "Layer B";
+		mappingDataPresent = true;
+		break;
+	case PixelSource::Background:
+		pixelSourceString = "Background";
+		break;
+	case PixelSource::Window:
+		pixelSourceString = "Window";
+		mappingDataPresent = true;
+		break;
+	case PixelSource::CRAMWrite:
+		pixelSourceString = "CRAM Write";
+		break;
+	case PixelSource::Border:
+		pixelSourceString = "Border";
+		break;
+	case PixelSource::Blanking:
+		pixelSourceString = "Blanking";
+		break;
+	}
+
+	//Pixel info
+	UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_SOURCE, pixelSourceString);
+	UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_HCOUNTER, 3, pixelInfo->hcounter);
+	UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_VCOUNTER, 3, pixelInfo->vcounter);
+	UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_PALETTEROW, pixelInfo->paletteRow);
+	UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_PALETTECOLUMN, pixelInfo->paletteEntry);
+	CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_SH_ENABLE, (pixelInfo->shadowHighlightEnabled) ? BST_CHECKED : BST_UNCHECKED);
+	CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_SHADOW, (pixelInfo->pixelIsShadowed) ? BST_CHECKED : BST_UNCHECKED);
+	CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_HIGHLIGHT, (pixelInfo->pixelIsHighlighted) ? BST_CHECKED : BST_UNCHECKED);
+	UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_R, 1, pixelInfo->colorComponentR);
+	UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_G, 1, pixelInfo->colorComponentG);
+	UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_B, 1, pixelInfo->colorComponentB);
+	HWND hwndColor = GetDlgItem(hwnd, IDC_VDP_IMAGE_PIXELINFO_COLOR);
+	if (hwndColor != NULL)
+	{
+		HDC dc = GetDC(hwndColor);
+		if (dc != NULL)
+		{
+			unsigned char r = model.ColorValueTo8BitValue(pixelInfo->colorComponentR, pixelInfo->pixelIsShadowed, pixelInfo->pixelIsHighlighted);
+			unsigned char g = model.ColorValueTo8BitValue(pixelInfo->colorComponentG, pixelInfo->pixelIsShadowed, pixelInfo->pixelIsHighlighted);
+			unsigned char b = model.ColorValueTo8BitValue(pixelInfo->colorComponentB, pixelInfo->pixelIsShadowed, pixelInfo->pixelIsHighlighted);
+			HBRUSH brush = CreateSolidBrush(RGB(r, g, b));
+			if (brush != NULL)
+			{
+				RECT rect;
+				GetClientRect(hwndColor, &rect);
+				FillRect(dc, &rect, brush);
+				DeleteObject(brush);
+			}
+			ReleaseDC(hwndColor, dc);
+		}
+	}
+
+	//Mapping (Pattern Name) data format:
+	//-----------------------------------------------------------------
+	//|15 |14 |13 |12 |11 |10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+	//|---------------------------------------------------------------|
+	//|Pri|PalRow |VF |HF |              Pattern Number               |
+	//-----------------------------------------------------------------
+	//Pri:    Priority Bit
+	//PalRow: The palette row number to use when displaying the pattern data
+	//VF:     Vertical Flip
+	//HF:     Horizontal Flip
+	if (mappingDataPresent)
+	{
+		UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_MAPPINGADDRESS, 5, pixelInfo->mappingVRAMAddress);
+		UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_MAPPINGDATA, 4, pixelInfo->mappingData);
+		UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_PATTERNNUMBER, 3, mask_get(pixelInfo->mappingData, 0, 11));
+		CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_HORIZONTALFLIP, mask_get(pixelInfo->mappingData, 11) ? BST_CHECKED : BST_UNCHECKED);
+		CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_VERTICALFLIP, mask_get(pixelInfo->mappingData, 12) ? BST_CHECKED : BST_UNCHECKED);
+		CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_PRIORITY, mask_get(pixelInfo->mappingData, 15) ? BST_CHECKED : BST_UNCHECKED);
+		UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_PATTERNROW, pixelInfo->patternRowNo);
+		UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_PATTERNCOLUMN, pixelInfo->patternColumnNo);
+	}
+	else
+	{
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_MAPPINGADDRESS, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_MAPPINGDATA, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_PATTERNNUMBER, "");
+		CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_HORIZONTALFLIP, BST_UNCHECKED);
+		CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_VERTICALFLIP, BST_UNCHECKED);
+		CheckDlgButton(hwnd, IDC_VDP_IMAGE_PIXELINFO_PRIORITY, BST_UNCHECKED);
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_PATTERNROW, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_PATTERNCOLUMN, "");
+	}
+
+	//Sprite data
+	if (spriteDataPresent)
+	{
+		UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITEENTRYNO, 2, pixelInfo->spriteTableEntryNo);
+		UpdateDlgItemHex(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITEENTRYADDRESS, 5, pixelInfo->spriteTableEntryAddress);
+		UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLSIZEX, pixelInfo->spriteCellWidth);
+		UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLSIZEY, pixelInfo->spriteCellHeight);
+		UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLPOSX, pixelInfo->spriteCellPosX);
+		UpdateDlgItemBin(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLPOSY, pixelInfo->spriteCellPosY);
+	}
+	else
+	{
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITEENTRYNO, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITEENTRYADDRESS, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLSIZEX, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLSIZEY, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLPOSX, "");
+		UpdateDlgItemString(hwnd, IDC_VDP_IMAGE_PIXELINFO_SPRITECELLPOSY, "");
+	}
+
+	return TRUE;
+}
+
+//----------------------------------------------------------------------------------------
+void HidePixelInfoWindow()
+{
+	//Hide the pixel info popup
+	pixelInfoVisible = false;
+	ShowWindow(hwndPixelInfo, SW_HIDE);
 }
 
 //----------------------------------------------------------------------------------------

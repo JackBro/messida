@@ -13,6 +13,7 @@ void UpdateDlgItemBin(HWND hwnd, int controlID, unsigned int data);
 unsigned int GetDlgItemBin(HWND hwnd, int controlID);
 void UpdateDlgItemHex(HWND hwnd, int controlID, unsigned int width, unsigned int data);
 unsigned int GetDlgItemHex(HWND hwnd, int controlID);
+void UpdateDlgItemString(HWND hwnd, int controlID, const std::string& data);
 std::string GetDlgItemString(HWND hwnd, int controlID);
 
 //DPI functions

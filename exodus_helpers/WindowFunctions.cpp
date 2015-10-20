@@ -79,6 +79,12 @@ unsigned int GetDlgItemHex(HWND hwnd, int controlID)
 }
 
 //----------------------------------------------------------------------------------------
+void UpdateDlgItemString(HWND hwnd, int controlID, const std::string& data)
+{
+	SetDlgItemText(hwnd, controlID, data.c_str());
+}
+
+//----------------------------------------------------------------------------------------
 std::string GetDlgItemString(HWND hwnd, int controlID)
 {
 	std::string result;

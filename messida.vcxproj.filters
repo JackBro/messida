@@ -47,9 +47,6 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="gens">
-      <UniqueIdentifier>{ba27ab8e-39c8-49c9-b45f-6141eb1c9e3e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="exodus_windows">
       <UniqueIdentifier>{244a05ea-d7d4-4181-b8d5-253d5b0ea9fe}</UniqueIdentifier>
     </Filter>

@@ -54,7 +54,49 @@ struct SpriteMappingTableEntry
 	bool hflip;
 };
 
-static size_t real_size;
-static UINT16 *ptrRegs;
+//----------------------------------------------------------------------------------------
+struct ImageBufferInfo
+{
+	ImageBufferInfo()
+		:mappingData(0)
+	{}
+
+	PixelSource pixelSource;
+	unsigned int hcounter;
+	unsigned int vcounter;
+	unsigned int paletteRow;
+	unsigned int paletteEntry;
+	bool shadowHighlightEnabled;
+	bool pixelIsShadowed;
+	bool pixelIsHighlighted;
+	unsigned int colorComponentR;
+	unsigned int colorComponentG;
+	unsigned int colorComponentB;
+
+	unsigned int mappingVRAMAddress;
+	UINT32 mappingData;
+	unsigned int patternRowNo;
+	unsigned int patternColumnNo;
+
+	unsigned int spriteTableEntryNo;
+	unsigned int spriteTableEntryAddress;
+	unsigned int spriteCellWidth;
+	unsigned int spriteCellHeight;
+	unsigned int spriteCellPosX;
+	unsigned int spriteCellPosY;
+};
+
+//----------------------------------------------------------------------------------------
+enum class PixelSource
+{
+	Sprite,
+	LayerA,
+	LayerB,
+	Background,
+	Window,
+	CRAMWrite,
+	Border,
+	Blanking
+};
 
 #endif
