@@ -527,10 +527,31 @@ static int do_step(dbg_notification_t idx)
 	return 1;
 }
 
+#if IDD_INTERFACE_VERSION >= 19
+static int idaapi thread_set_step(thid_t tid, resume_mode_t mode) // Run one instruction in the thread
+{
+	switch (mode)
+	{
+	case RESMOD_INTO:
+		get_debugger()->single_step();
+		break;
+
+	case RESMOD_OVER:
+		get_debugger()->single_step_over();
+		break;
+
+	case RESMOD_OUT:
+		get_debugger()->single_step_out();
+		break;
+	}
+	return 1;
+}
+#else
 static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thread
 {
 	return do_step(get_running_notification());
 }
+#endif
 
 static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt = 1)
 {

@@ -12,7 +12,7 @@
 // A copy of the GPL 2.0 should have been included with the program.
 // If not, see http ://www.gnu.org/licenses/
 
-#define VERSION "1.5.3"
+#define VERSION "1.5.4"
 
 #include <Windows.h>
 
@@ -215,7 +215,7 @@ static int idaapi idp_to_dbg_reg(int idp_reg)
 		reg_idx = R_A0 + (idp_reg % 8);
 	else if (idp_reg == 91)
 		reg_idx = R_PC;
-	else if (idp_reg == 93)
+	else if (idp_reg == 92 || idp_reg == 93)
 		reg_idx = R_SR;
 	else if (idp_reg == 94)
 		reg_idx = R_USP;
