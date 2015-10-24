@@ -1,7 +1,5 @@
-#include "debug.h"
-
+#include <Windows.h>
 #include <algorithm>
-#include <unordered_map>
 #include <ida.hpp>
 #include <idd.hpp>
 #include <dbg.hpp>
@@ -19,13 +17,11 @@
 
 #include "registers.h"
 #include "vdp_ram.h"
-
-#undef malloc
-#undef free
+#include "debug.h"
 
 extern int utf8_main(int argc, char *argv[]);
 
-extern std::unordered_map<int, HWND> openedWindows;
+extern HWND VDPRamHWnd;
 
 codemap_t g_codemap;
 running_machine *g_running_machine = NULL;
@@ -209,23 +205,18 @@ static UINT16 get_vdp_write_pos()
 	return ptr[0];
 }
 
-UINT16 get_vdp_reg_value(register_t idx, UINT16 *region, size_t real_size)
-{
-	if (!(region || real_size))
-		return 0;
-
-	return region[idx - R_DR00];
-}
-
-UINT16 get_vdp_reg_value(register_t idx)
+static UINT16 get_vdp_reg_value(register_t idx)
 {
 	size_t real_size = 0;
 	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
 
-	return get_vdp_reg_value(idx, ptr, real_size);
+	if (!(ptr || real_size))
+		return 0;
+
+	return ptr[idx - R_DR00];
 }
 
-void set_vdp_reg_value(register_t idx, const regval_t *value)
+static void set_vdp_reg_value(register_t idx, const regval_t *value)
 {
 	size_t real_size = 0;
 	UINT16 *ptr = (UINT16 *)find_region("gen_vdp/0/m_regs", ':', &real_size);
@@ -244,82 +235,6 @@ static ea_t get_68k_reg_value(register_t idx)
 static void set_68k_reg_value(register_t idx, const regval_t *value)
 {
 	get_symbol_table()->set_value(register_str_t[idx], value->ival);
-}
-
-size_t cram_size = 0;
-size_t vram_size = 0;
-size_t vsram_size = 0;
-UINT8 *ptrVRAM = NULL;
-UINT8 *ptrCRAM = NULL;
-UINT8 *ptrVSRAM = NULL;
-
-void dump_cram()
-{
-	void *ptr = ptrCRAM;
-	mess_vdp_read("m_cram", ptr, cram_size);
-	ptrCRAM = (UINT8 *)ptr;
-}
-
-void dump_vram()
-{
-	void *ptr = ptrVRAM;
-	mess_vdp_read("m_vram", ptr, vram_size);
-	ptrVRAM = (UINT8 *)ptr;
-}
-
-void dump_vsram()
-{
-	void *ptr = ptrVSRAM;
-	mess_vdp_read("m_vsram", ptr, vsram_size);
-	ptrVSRAM = (UINT8 *)ptr;
-}
-
-COLORREF get_color(UINT8 *cram, int index)
-{
-	UINT16 word = ((cram[index * 2] << 8) | cram[index * 2 + 1]);
-
-	UINT8 r = (UINT8)(((word >> 0) & 0xE) << 4);
-	UINT8 g = (UINT8)(((word >> 4) & 0xE) << 4);
-	UINT8 b = (UINT8)(((word >> 8) & 0xE) << 4);
-
-	return RGB(r, g, b);
-}
-
-size_t mess_vdp_read(const char *region, void* &buffer, size_t &orig_size)
-{
-	size_t real_size = 0;
-	UINT8 *ptr = (UINT8 *)find_region(region, '/', &real_size);
-
-	if (orig_size == 0)
-		orig_size = real_size;
-
-	if (!(ptr || real_size))
-		return 0;
-
-	if (buffer == NULL)
-		buffer = (UINT8*)malloc(real_size);
-
-	real_size = std::min(real_size, orig_size);
-	for (size_t i = 0; i < real_size; i += 2)
-	{
-		((UINT8*)buffer)[i] = ptr[i + 1];
-		((UINT8*)buffer)[i + 1] = ptr[i];
-	}
-	return real_size;
-}
-
-HINSTANCE GetHInstance()
-{
-	MEMORY_BASIC_INFORMATION mbi;
-	SetLastError(ERROR_SUCCESS);
-	VirtualQuery(GetHInstance, &mbi, sizeof(mbi));
-
-	return (HINSTANCE)mbi.AllocationBase;
-}
-
-UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt)
-{
-	return (((1 << bits_cnt) - 1) << bit_idx);
 }
 
 static void prepare_codemap()
@@ -375,18 +290,7 @@ static void finish_execution()
 {
 	if (stopped) return;
 	stopped = true;
-
-	std::for_each(openedWindows.begin(), openedWindows.end(), [](const std::pair<int, HWND> & pair)
-	{
-		SendMessage(pair.second, WM_CLOSE, 0, 0);
-	});
-	openedWindows.clear();
-	free(ptrCRAM);
-	ptrCRAM = NULL;
-	free(ptrVRAM);
-	ptrVRAM = NULL;
-	free(ptrVSRAM);
-	ptrVSRAM = NULL;
+	SendMessage(VDPRamHWnd, WM_CLOSE, 0, 0);
 
 	if (mess_thread != NULL)
 	{
@@ -527,6 +431,8 @@ static gdecode_t idaapi get_debug_event(debug_event_t *event, int timeout_ms)
 {
 	while (true)
 	{
+		if (!stopped)
+			Update_VDP_RAM();
 		// are there any pending events?
 		if (g_events.retrieve(event))
 		{
@@ -624,6 +530,11 @@ static int do_step(dbg_notification_t idx)
 static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thread
 {
 	return do_step(get_running_notification());
+}
+
+static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt = 1)
+{
+	return (((1 << bits_cnt) - 1) << bit_idx);
 }
 
 // Read thread registers
