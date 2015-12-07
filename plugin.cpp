@@ -118,7 +118,7 @@ static void install_shell_vram_menu()
 
 cli_t *reg_cli = NULL;
 
-static bool execute_mame_cmd(const char *cmd)
+static bool execute_mame_cmd(const char *_cmd)
 {
 	struct ida_local mame_cmd_t : public exec_request_t
 	{
@@ -129,7 +129,7 @@ static bool execute_mame_cmd(const char *cmd)
 		}
 		mame_cmd_t(const char *_line) : line(_line) {}
 	};
-	mame_cmd_t exec(cmd);
+	mame_cmd_t exec(_cmd);
 	return execute_sync(exec, MFF_FAST);
 }
 
@@ -294,7 +294,7 @@ static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 						regval_t reg;
 						int reg_idx = idp_to_dbg_reg(op.reg);
 
-						const char *reg_name = dbg->registers[reg_idx].name;
+						const char *reg_name = dbg->registers(reg_idx).name;
 						if (get_reg_val(reg_name, &reg))
 						{
 							idaplace_t here;
@@ -324,13 +324,13 @@ static int idaapi hook_ui(void *user_data, int notification_code, va_list va)
 						add_reg.ival = 0;
 						if (op.specflag2 & 0x10)
 						{
-							get_reg_val(dbg->registers[add_reg_idx].name, &add_reg);
+							get_reg_val(dbg->registers(add_reg_idx).name, &add_reg);
 							if (op.specflag1 & 0x10)
 								add_reg.ival &= 0xFFFF;
 						}
 
 						if (main_reg_idx != R_PC)
-							get_reg_val(dbg->registers[main_reg_idx].name, &main_reg);
+							get_reg_val(dbg->registers(main_reg_idx).name, &main_reg);
 
 						idaplace_t here;
 						ea_t addr = (uint32)main_reg.ival + op.addr + (uint32)add_reg.ival; // TODO: displacements with PC and other regs unk_123(pc, d0.l); unk_111(d0, d2.w)

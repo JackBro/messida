@@ -507,27 +507,6 @@ static int idaapi thread_continue(thid_t tid) // Resume a suspended thread
 	return 0;
 }
 
-static int do_step(dbg_notification_t idx)
-{
-	switch (idx)
-	{
-	case dbg_step_into:
-		get_debugger()->single_step();
-		break;
-
-	case dbg_step_over:
-		get_debugger()->single_step_over();
-		break;
-
-	case dbg_step_until_ret:
-		get_debugger()->single_step_out();
-		break;
-	}
-
-	return 1;
-}
-
-#if IDD_INTERFACE_VERSION >= 19
 static int idaapi thread_set_step(thid_t tid, resume_mode_t mode) // Run one instruction in the thread
 {
 	switch (mode)
@@ -546,12 +525,6 @@ static int idaapi thread_set_step(thid_t tid, resume_mode_t mode) // Run one ins
 	}
 	return 1;
 }
-#else
-static int idaapi thread_set_step(thid_t tid) // Run one instruction in the thread
-{
-	return do_step(get_running_notification());
-}
-#endif
 
 static UINT32 mask(UINT8 bit_idx, UINT8 bits_cnt = 1)
 {
@@ -936,7 +909,8 @@ debugger_t debugger =
 	NULL, // bpt_bytes, // Array of bytes for a breakpoint instruction
 	NULL, // bpt_size, // Size of this array
 	0, // for miniidbs: use this value for the file type after attaching
-	0, // reserved
+
+	DBG_RESMOD_STEP_INTO | DBG_RESMOD_STEP_OVER | DBG_RESMOD_STEP_OUT, // reserved
 
 	init_debugger,
 	term_debugger,

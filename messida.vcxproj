@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug64|Win32">
       <Configuration>Debug64</Configuration>
@@ -36,7 +36,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <ConfigurationType>DynamicLibrary</ConfigurationType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -53,8 +53,8 @@
     <TargetExt>.p64</TargetExt>
   </PropertyGroup>
   <PropertyGroup Label="UserMacros">
-    <IDA_DIR>d:\ida65</IDA_DIR>
-    <IDA_SDK>d:\idasdk66</IDA_SDK>
+    <IDA_DIR>d:\ida68</IDA_DIR>
+    <IDA_SDK>d:\idasdk68</IDA_SDK>
   </PropertyGroup>
   <ItemGroup>
     <BuildMacro Include="IDA_DIR">
@@ -132,8 +132,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\build\generated\mame\megadrive\drivlist.c" />
-    <ClCompile Include="..\..\src\mame\mame.c" />
-    <ClCompile Include="..\..\src\version.c" />
+    <ClCompile Include="..\..\src\mame\mame.cpp" />
+    <ClCompile Include="..\..\src\version.cpp" />
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="dialog_utils.cpp" />
     <ClCompile Include="nargv.c" />
@@ -143,73 +143,70 @@
     <ClInclude Include="dialog_utils.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="vdp_ram.h" />
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\7z.vcxproj">
+    <ClInclude Include="registers.h" />
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\7z.vcxproj">
       <Project>{ad573d62-e76a-4b11-ae34-5110a6789a42}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\bgfx.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\bgfx.vcxproj">
       <Project>{d3e7e119-35cf-4f4f-aba0-d3bdcd1b879a}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\dasm.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\dasm.vcxproj">
       <Project>{f2d28b0a-6da5-4f78-b629-d834aa00429d}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\emu.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\emu.vcxproj">
       <Project>{e6fa15e4-a354-4526-acef-13c8e80fcacf}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\expat.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\expat.vcxproj">
       <Project>{f4cd40b1-c37c-452d-9785-640f26f0bf54}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\flac.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\flac.vcxproj">
       <Project>{b6fc19e8-073a-4541-bb7b-d24b548d424a}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\formats.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\formats.vcxproj">
       <Project>{f69636b1-fcce-45ce-b09a-113e371a2d7a}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\jpeg.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\jpeg.vcxproj">
       <Project>{447c6800-dcfd-4c48-b72a-a8223bb409ca}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\jsoncpp.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\jsoncpp.vcxproj">
       <Project>{ae023ff3-d712-4e54-adc5-3b56a148650f}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\lsqlite3.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\lsqlite3.vcxproj">
       <Project>{1d84edab-94cf-48fb-83ee-b75bc697660e}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\lua.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\lua.vcxproj">
       <Project>{d9e2eed1-f1ab-4737-a6ac-863700b1a5a9}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\mame_megadrive.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\mame_megadrive.vcxproj">
       <Project>{1fce0342-0bb2-c497-7412-bfea6015af19}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\mongoose.vcxproj">
-      <Project>{ff05b529-2b6f-4166-9dff-5fe2aef89c40}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\netlist.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\netlist.vcxproj">
       <Project>{665ef8ac-2a4c-4c3e-a05f-fd1e5db11de9}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\ocore_windows.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\ocore_windows.vcxproj">
       <Project>{678afacb-d34a-7602-9c85-bf7f0805bbde}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\optional.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\optional.vcxproj">
       <Project>{abcc5410-1704-9da7-200e-01cb8cc4c3a0}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\osd_windows.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\osd_windows.vcxproj">
       <Project>{d5e1a481-4197-1d77-ca8b-174e3640147b}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\portmidi.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\portmidi.vcxproj">
       <Project>{587f2da6-3274-4a65-86a2-f13ea315bb98}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\softfloat.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\softfloat.vcxproj">
       <Project>{04fbf89e-4761-4cf2-8a12-64500cf0c5c5}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\sqllite3.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\sqllite3.vcxproj">
       <Project>{5cb3d495-57ed-461c-81e5-80dc0857517d}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\utils.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\utils.vcxproj">
       <Project>{22489ad0-4cb2-4d91-ad81-24b0d80ca30a}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2013\zlib.vcxproj">
+    <ProjectReference Include="..\..\build\projects\windows\mamemegadrive\vs2015\zlib.vcxproj">
       <Project>{3d78bd2a-2bd0-4449-8087-42ddfaef7ec9}</Project>
     </ProjectReference>
-    <ClInclude Include="registers.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="messida.rc" />
