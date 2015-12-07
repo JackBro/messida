@@ -1,10 +1,10 @@
 # messida
-IDA debugger plugin based on MESS emulator
+IDA debugger plugin based on MAME emulator
 
 ## Compilation (for Windows)
-1. Download latest **MESS** source using **Build Tools**;
-2. Apply **changes.diff** to **src\mame** dir.
-3. Generate solution for **Visual Studio 2013** (*make vs2013 PYTHON_EXECUTABLE=C:\buildtools\vendor\python\python SUBTARGET=megadrive DRIVERS=src/mame/drivers/megadriv.c*);
+1. Download latest **MAME** source using **Build Tools**;
+2. Apply **changes.patch** to **src\mame** dir.
+3. Generate solution for **Visual Studio 2015** (*make vs2015 PYTHON_EXECUTABLE=C:\buildtools\vendor\python\python SUBTARGET=megadrive SOURCES=src/mame/drivers/megadriv.cpp*);
 4. Put all files from this repo to **src\mame\3rdparty\messida**;
 5. Open **messida_emu.props**, **messida.vcxproj** in any text editor and edit paths in **IDA_SDK** accordingly to your real paths;
 6. Open **messida.vcxproj** in any text editor and edit path in **IDA_DIR** accordingly to your real path;
